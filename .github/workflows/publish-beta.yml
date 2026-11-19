@@ -8,6 +8,7 @@ permissions:
   contents: write
 jobs:
   publish:
+    if: github.repository == 'iluhin/app.slovoplet.beta' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
