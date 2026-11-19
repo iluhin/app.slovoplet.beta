@@ -1,0 +1,37 @@
+name: Publish beta OTA pair
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['beta-dist/**', '.github/workflows/publish-beta.yml']
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify prepared artifacts
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          d=pathlib.Path('beta-dist'); checks=json.loads((d/'checksums.json').read_text())
+          for f in d.iterdir():
+              if f.name=='checksums.json':continue
+              assert f.name in checks, f.name
+              assert hashlib.sha256(f.read_bytes()).hexdigest()==checks[f.name]['sha256'],f.name
+          PY
+      - name: Publish prereleases without changing stable latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for pair in '3.0:beta-v3.0.0' '3.0.1:beta-v3.0.1'; do
+            version="${pair%%:*}"
+            tag="${pair#*:}"
+            if gh release view "$tag" >/dev/null 2>&1; then
+              gh release upload "$tag" "beta-dist/slovoplet-beta-$version.apk" "beta-dist/components-$version.zip" "beta-dist/manifest-$version.json" beta-dist/checksums.json --clobber
+              gh release edit "$tag" --prerelease --latest=false --draft=false --title "$version beta — обновление компонентов" --notes-file "releases/$tag.md"
+            else
+              gh release create "$tag" "beta-dist/slovoplet-beta-$version.apk" "beta-dist/components-$version.zip" "beta-dist/manifest-$version.json" beta-dist/checksums.json --target main --prerelease --latest=false --title "$version beta — обновление компонентов" --notes-file "releases/$tag.md"
+            fi
+          done

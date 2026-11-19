@@ -1,0 +1,333 @@
+/* Словоплёт — автономный движок. Повторяет ответы api.php, когда сети нет.
+ *
+ * Данные (слова, настройки, попытки, тексты) берутся из бандла, который отдаёт
+ * сайт по api.php?a=bundle. Бандл кэшируется в localStorage; в приложении есть
+ * ещё и встроенная копия (app/seed.json) — чтобы игра работала даже при первом
+ * запуске без сети.
+ *
+ * Офлайн-партии НИКОГДА не уходят на сервер: рейтинг и статистика сайта
+ * остаются серверными, поэтому локальный словарь ни на что не влияет.
+ */
+(() => {
+'use strict';
+
+const K = {
+  bundle: 'five_bundle',
+  game:   'five_off_game',
+  stats:  'five_off_stats',
+  last:   'five_off_last',
+  lb:     'five_lb_cache',
+  news:   'five_words_news',
+};
+const LEN = 5;
+
+const ls = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+  del(k)    { try { localStorage.removeItem(k); } catch (e) {} },
+  json(k, d) { try { const v = JSON.parse(localStorage.getItem(k)); return v === null || v === undefined ? d : v; } catch (e) { return d; } },
+  put(k, v)  { ls.set(k, JSON.stringify(v)); },
+};
+
+/* ---------- Слова ---------- */
+const norm = w => String(w || '').trim().toUpperCase().replace(/Ё/g, 'Е');
+const isWord = w => /^[А-Я]{5}$/.test(w);
+const b64 = s => {
+  try { return decodeURIComponent(escape(atob(String(s || '')))); } catch (e) { return ''; }
+};
+const split = s => String(s || '').split(/[\s,;]+/).map(norm).filter(isWord);
+
+/* ---------- Бандл ---------- */
+let B = null;              // {ts, format, config, accept_any, words:[], extra:[], allow:Set}
+let loading = null;
+
+function shape(raw) {
+  if (!raw || !raw.config) return null;
+  const words = split(b64(raw.words));
+  const extra = split(b64(raw.extra));
+  if (!words.length) return null;
+  const allow = new Set(words.concat(extra));
+  return {
+    ts: raw.ts || 0, format: raw.format || 0, site: raw.site || '',
+    config: raw.config, accept_any: !!raw.accept_any,
+    words, extra, allow,
+    count: raw.count || { words: words.length, extra: extra.length },
+  };
+}
+
+/**
+ * Что изменилось в словаре загадываемых слов по сравнению с прошлым бандлом.
+ * Копим до тех пор, пока игра не покажет сообщение: человек мог закрыть игру
+ * сразу после запуска, а правок к тому времени накопиться несколько.
+ */
+function noteWordsDiff(prevRaw, words) {
+  const prev = shape(prevRaw);
+  if (!prev) return;
+  const was = new Set(prev.words), now = new Set(words);
+  let add = 0, del = 0;
+  now.forEach(w => { if (!was.has(w)) add++; });
+  was.forEach(w => { if (!now.has(w)) del++; });
+  if (!add && !del) return;
+  const p = ls.json(K.news, { add: 0, del: 0 });
+  ls.put(K.news, { add: (p.add || 0) + add, del: (p.del || 0) + del });
+}
+
+function useRaw(raw, remember, seeded) {
+  const b = shape(raw);
+  if (!b) return false;
+  b.seeded = !!seeded;
+  if (remember) {
+    // Сравниваем до перезаписи: встроенная копия в кэш не попадает, поэтому
+    // на первом запуске сравнивать не с чем и сообщения не будет.
+    const prev = ls.json(K.bundle, null);
+    if (prev) noteWordsDiff(prev, b.words);
+    ls.put(K.bundle, raw);
+  }
+  B = b;
+  return true;
+}
+
+/** Бандл из сети. Возвращает true, если удалось. */
+async function fromNet() {
+  try {
+    const r = await fetch('api.php?a=bundle', { cache: 'no-store' });
+    if (!r.ok) return false;
+    const j = await r.json();
+    return j && j.ok ? useRaw(j, true) : false;
+  } catch (e) { return false; }
+}
+
+/** Встроенная в приложение копия — последний шанс при первом запуске без сети. */
+async function fromSeed() {
+  if (!window.FIVE_APP) return false;
+  try {
+    const r = await fetch('app/seed.json', { cache: 'force-cache' });
+    if (!r.ok) return false;
+    const j = await r.json();
+    return j && j.ok ? useRaw(j, false, true) : false;
+  } catch (e) { return false; }
+}
+
+function fromCache() {
+  const raw = ls.json(K.bundle, null);
+  return raw ? useRaw(raw, false) : false;
+}
+
+/** Готов ли движок к игре: кэш → встроенная копия. Сеть здесь не трогаем. */
+function ready() {
+  if (B) return Promise.resolve(true);
+  if (!loading) loading = (async () => (fromCache() || await fromSeed()))().then(ok => { loading = null; return ok; });
+  return loading;
+}
+
+/* ---------- Локальная статистика ---------- */
+function blankStats() {
+  return { games: 0, wins: 0, best_time: 0, total_time: 0, streak: 0, max_streak: 0, dist: {}, day: '', day_count: 0 };
+}
+const getStats = () => Object.assign(blankStats(), ls.json(K.stats, null) || {});
+const putStats = s => ls.put(K.stats, s);
+
+function today() {
+  const d = new Date();
+  const p = n => String(n).padStart(2, '0');
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+}
+
+/* ---------- Партия ---------- */
+const getGame = () => ls.json(K.game, null);
+const putGame = g => (g ? ls.put(K.game, g) : ls.del(K.game));
+
+function pick() {
+  const last = ls.get(K.last, '');
+  let pool = B.words;
+  if (pool.length > 1 && last) {
+    const cut = pool.filter(w => w !== last);
+    if (cut.length) pool = cut;
+  }
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+function evaluate(guess, target) {
+  const t = [...target], g = [...guess], res = new Array(LEN).fill('a');
+  for (let i = 0; i < LEN; i++) if (g[i] === t[i]) { res[i] = 'c'; t[i] = null; g[i] = null; }
+  for (let i = 0; i < LEN; i++) {
+    if (g[i] === null) continue;
+    const j = t.indexOf(g[i]);
+    if (j !== -1) { res[i] = 'p'; t[j] = null; }
+  }
+  return res;
+}
+
+function cfg() {
+  const c = Object.assign({}, B.config);
+  c.mode = 'random';        // офлайн — только случайное слово
+  c.limit = 0; c.guest_limit = 0;
+  c.def = false;            // толкования требуют сети
+  c.register = false;       // профили живут на сервере
+  c.guests = true;
+  return c;
+}
+
+/** «Простое слово» — из первой трети словаря, как и на сервере. */
+function isEasy(word) {
+  const all = B.words || [];
+  const i = all.indexOf(word);
+  return i > -1 && i < Math.max(1, Math.floor(all.length / 3));
+}
+
+function gameView(g) {
+  if (!g) return null;
+  const out = {
+    guesses: g.rows, over: !!g.over, win: !!g.win,
+    started: !!g.t0,
+    elapsed: g.t0 ? (g.over ? g.time : (g.rep ? Math.round(g.active || 0) : Math.max(0, Math.round(Date.now() / 1000) - g.t0))) : 0,
+    time: g.time || 0,
+  };
+  if (g.over) out.word = g.word;
+  return out;
+}
+
+function state() {
+  const s = getStats();
+  return {
+    ok: true, offline: true, csrf: 'offline',
+    config: cfg(),
+    user: null, guest: true,
+    used: s.day === today() ? s.day_count : 0,
+    limit: 0, daily_done: false,
+    game: gameView(getGame()),
+    today: today(),
+  };
+}
+
+function newGame() {
+  const g = getGame();
+  if (g && !g.over) return state();
+  const word = pick();
+  putGame({ word, rows: [], t0: null, counted: false, over: false, win: false, time: 0, active: 0, tick: null, rep: false, date: today() });
+  return state();
+}
+
+function begin() {
+  const g = getGame();
+  if (g && !g.t0 && !g.over) { g.t0 = g.tick = Math.round(Date.now() / 1000); putGame(g); }
+  return { ok: true };
+}
+
+/**
+ * Активное время партии. Как на сервере: клиент присылает намеренные
+ * миллисекунды, но принимаем не больше, чем прошло по часам, — иначе любой
+ * сможет «доложить» себе рекорд.
+ */
+function addActive(g, ms) {
+  if (!g || g.over || !g.t0) return;
+  const now = Math.round(Date.now() / 1000);
+  const since = Math.max(0, now - (g.tick || g.t0));
+  g.active = (g.active || 0) + Math.max(0, Math.min((Number(ms) || 0) / 1000, since));
+  g.tick = now;
+  if ((Number(ms) || 0) > 0) g.rep = true;
+}
+
+function tick(body) {
+  const g = getGame();
+  if (!g || g.over) return { ok: true, active: 0 };
+  addActive(g, body && body.ms);
+  putGame(g);
+  return { ok: true, active: Math.round(g.active || 0) };
+}
+
+function guess(body) {
+  const g = getGame();
+  if (!g) return { ok: false, error: 'Партия не найдена. Начните новую.', resync: true };
+  if (g.over) return { ok: false, error: 'Партия уже завершена.', resync: true };
+
+  const word = norm(body && body.word);
+  if (!isWord(word)) return { ok: false, error: 'Нужно слово из 5 русских букв', shake: true };
+  if (!B.accept_any && !B.allow.has(word)) return { ok: false, error: 'Такого слова нет в словаре', shake: true, code: 'nodict' };
+  if (g.rows.some(r => r.w === word)) return { ok: false, error: 'Это слово уже было', shake: true };
+
+  const now = Math.round(Date.now() / 1000);
+  if (!g.t0) g.t0 = g.tick = now;
+  addActive(g, body && body.ms);
+
+  const s = getStats();
+  if (!g.counted) {
+    g.counted = true;
+    s.games++;
+    if (s.day !== today()) { s.day = today(); s.day_count = 0; }
+    s.day_count++;
+  }
+
+  const colors = evaluate(word, g.word);
+  g.rows.push({ w: word, c: colors.join('') });
+  const attempt = g.rows.length;
+  const win = word === g.word;
+  const over = win || attempt >= Number(cfg().attempts || 5);
+  const out = { ok: true, offline: true, colors, attempt, over: false };
+
+  if (over) {
+    g.over = true; g.win = win;
+    const wall = Math.max(1, now - g.t0), act = Math.round(g.active || 0);
+    g.time = Math.min(5999, Math.max(1, g.rep ? act : wall));
+    const fair = !g.rep || act * 4 + 60 >= wall;
+    ls.set(K.last, g.word);
+    if (win) {
+      s.wins++;
+      s.total_time += g.time;
+      if (fair && (!s.best_time || g.time < s.best_time)) s.best_time = g.time;
+      s.dist[String(attempt)] = (Number(s.dist[String(attempt)]) || 0) + 1;
+      s.streak++;
+      if (s.streak > s.max_streak) s.max_streak = s.streak;
+    } else {
+      s.streak = 0;
+    }
+    Object.assign(out, { over: true, win, word: g.word, time: g.time, player: null, easy: isEasy(g.word) });
+  }
+  putStats(s); putGame(g);
+  return out;
+}
+
+/* ---------- Рейтинг из кэша ---------- */
+function leaderboard() {
+  const c = ls.json(K.lb, null);
+  if (!c || !c.rows || !c.rows.length) return { ok: false, offline: true, error: 'Рейтинг появится после подключения к интернету.' };
+  return { ok: true, offline: true, cached: c.ts || 0, rows: c.rows, sort: c.sort || 'wins' };
+}
+
+/* ---------- Публичный интерфейс ---------- */
+const NEED_NET = msg => ({ ok: false, offline: true, need_net: true, error: msg });
+
+async function call(action, body) {
+  if (!await ready()) return { ok: false, error: 'Нет связи с сервером, а автономные данные ещё не загружены.' };
+  switch (action) {
+    case 'state':       return state();
+    case 'new':         return newGame();
+    case 'begin':       return begin();
+    case 'tick':        return tick(body);
+    case 'guess':       return guess(body);
+    case 'guest':       return state();
+    case 'logout':      return state();
+    case 'leaderboard': return leaderboard();
+    case 'auth':        return NEED_NET('Вход в профиль доступен только при подключении к интернету.');
+    case 'report':      return NEED_NET('Жалобу можно отправить при подключении к интернету.');
+  }
+  if (action.indexOf('define') === 0) return { ok: false, offline: true, error: 'offline' };
+  return { ok: false, offline: true, error: 'Это действие доступно при подключении к интернету.' };
+}
+
+window.FiveOffline = {
+  ready,
+  call,
+  refresh: fromNet,
+  available: () => !!B || !!ls.json(K.bundle, null) || !!window.FIVE_APP,
+  info: () => (B ? { ts: B.ts, site: B.site, count: B.count, format: B.format, seeded: !!B.seeded } : null),
+  stats: getStats,
+  /** Накопленные изменения словаря: {add, del} или null. */
+  news() { const n = ls.json(K.news, null); return n && (n.add || n.del) ? n : null; },
+  newsSeen() { ls.del(K.news); },
+  reset() { ls.del(K.game); ls.del(K.stats); ls.del(K.last); },
+  cacheLeaderboard(r) {
+    if (r && r.ok && r.rows) ls.put(K.lb, { ts: Math.round(Date.now() / 1000), rows: r.rows.slice(0, 10), sort: r.sort || 'wins' });
+  },
+};
+})();

@@ -1,0 +1,31 @@
+/* beta OTA controls. Native code verifies, stages and rolls back components. */
+(() => {
+'use strict';
+if (!window.FIVE_APP || FIVE_APP.channel !== 'beta') return;
+const api = window.FiveApp, $ = s => document.querySelector(s);
+const button=document.createElement('button');button.type='button';button.className='linkbtn';button.id='beta-update-open';button.style.cssText='display:block;margin:5px auto;font-size:12px';button.textContent='β · Компоненты '+FIVE_APP.version;
+($('.foot') || $('#app')).append(button);
+const modal=document.createElement('div');modal.className='modal';modal.id='m-beta-updates';
+modal.innerHTML='<div class="shade"></div><div class="sheet"><button class="close" type="button" aria-label="Закрыть">×</button><h2>Обновления beta</h2><p class="sub">Обновляются компоненты игры. APK остаётся установленным.</p><div class="stack"><p id="beta-versions"></p><p id="beta-demo" role="status"></p><p id="beta-message" role="status"></p><p id="beta-size" class="hint"></p><button class="btn block" id="beta-check" type="button">Проверить обновления</button><button class="btn primary block" id="beta-apply" type="button" disabled>Применить без установки APK</button><p class="hint">Незаконченная партия не перезапускается автоматически. Загруженная версия включится при следующем запуске или по кнопке после партии.</p></div></div>';
+document.body.append(modal);
+button.onclick=()=>{modal.classList.add('open');render();};
+modal.querySelector('.close').onclick=()=>modal.classList.remove('open');modal.querySelector('.shade').onclick=()=>modal.classList.remove('open');
+let current={};
+function render(){
+ try{current=api&&api.otaStatus?JSON.parse(api.otaStatus()):{shell:FIVE_APP.shellVersion,version:FIVE_APP.version,message:'Нативный OTA-мост недоступен'};}catch(_){return;}
+ $('#beta-versions').textContent='Канал: beta · Оболочка APK '+(current.shell||FIVE_APP.shellVersion)+' · Компоненты '+(current.version||FIVE_APP.version);
+ $('#beta-message').textContent=current.message||'Проверка beta-канала';
+ $('#beta-size').textContent=current.changed?'Загружено файлов: '+current.changed+' · '+current.bytes+' байт · Повторно использовано: '+current.reused:'';
+ $('#beta-check').disabled=['checking','downloading'].includes(current.phase);
+ $('#beta-apply').disabled=!current.ready;
+ button.textContent=current.ready?'β · Готова '+current.ready:'β · Компоненты '+(current.version||FIVE_APP.version);
+}
+$('#beta-check').onclick=()=>{if(api&&api.otaCheck)api.otaCheck();render();};
+$('#beta-apply').onclick=()=>{
+ if(!window.BETA_CAN_APPLY||!BETA_CAN_APPLY()){$('#beta-message').textContent='Сначала завершите текущую партию. Компоненты уже сохранены.';return;}
+ if(api&&api.otaApply)api.otaApply();
+};
+fetch('assets/beta-release.json').then(r=>r.json()).then(r=>{$('#beta-demo').textContent=r.demo;}).catch(()=>{});
+window.BetaUpdates={ready(){if(api&&api.otaHealthy)api.otaHealthy();if(api&&api.otaCheck)api.otaCheck();render();}};
+render();setInterval(()=>{if(!document.hidden)render();},1200);
+})();
