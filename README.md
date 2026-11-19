@@ -1,5 +1,7 @@
 <div align="center">
 
+**Русский** · [English](README.en.md)
+
 <img src="cover.png" alt="Словоплёт">
 
 # Словоплёт · Beta
