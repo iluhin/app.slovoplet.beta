@@ -1,6 +1,7 @@
+**Русский** · [English](README.en.md) · [Español](README.es.md) · [简体中文](README.zh-CN.md)
+
 <div align="center">
 
-**Русский** · [English](README.en.md)
 
 <img src="cover.png" alt="Словоплёт">
 

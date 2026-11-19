@@ -1,6 +1,7 @@
+[Русский](README.md) · **English** · [Español](README.es.md) · [简体中文](README.zh-CN.md)
+
 <div align="center">
 
-[Русский](README.md) · **English**
 
 <img src="cover.png" alt="Slovoplet">
 
