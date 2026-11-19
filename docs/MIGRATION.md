@@ -11,6 +11,7 @@
 Исходный снимок переноса:
 [app.slovoplet:beta, 19664d6](https://github.com/iluhin/app.slovoplet/commit/19664d683d0a8bb3e8d9ded3fb54a21a53a19424).
 Стабильная main и её история не переносятся и не переписываются.
+Обложка сохранена из последнего оформления владельца: [5f28749](https://github.com/iluhin/app.slovoplet/commit/5f28749).
 
 ## Совместимость уже выпущенных APK
 

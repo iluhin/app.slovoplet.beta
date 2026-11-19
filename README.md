@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="icon.png" width="96" height="96" alt="Знак Словоплёта">
+<img src="cover.png" alt="Словоплёт">
 
 # Словоплёт · Beta
 
