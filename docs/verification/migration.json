@@ -1,0 +1,69 @@
+{
+  "sourceRepository": "iluhin/app.slovoplet",
+  "sourceCommit": "19664d683d0a8bb3e8d9ded3fb54a21a53a19424",
+  "targetRepository": "iluhin/app.slovoplet.beta",
+  "legacyOtaOrigin": "https://raw.githubusercontent.com/iluhin/app.slovoplet/beta/ota/",
+  "verification": {
+    "downloadedAssetCopies": 8,
+    "identicalToSource": true,
+    "rsaSignedSnapshots": 3
+  },
+  "releases": [
+    {
+      "tag": "beta-v3.0.1",
+      "sourceReleaseId": 451812380,
+      "originalPublishedAt": "2026-11-19T19:14:11Z",
+      "targetRelease": "https://github.com/iluhin/app.slovoplet.beta/releases/tag/beta-v3.0.1",
+      "assets": [
+        {
+          "name": "checksums.json",
+          "bytes": 1190,
+          "sha256": "2986030c4f9b0b17d48b49326868a8ac0c4cbbe4ea75dff2ecf1294ade2f2f92"
+        },
+        {
+          "name": "components-3.0.1.zip",
+          "bytes": 104600,
+          "sha256": "6a6d1af7b9b33bf1cacca6ba4396e15619193bbd5a4466066da94ec098302dd6"
+        },
+        {
+          "name": "manifest-3.0.1.json",
+          "bytes": 4125,
+          "sha256": "0887ab85eb7a14b02312da819c375dd69691b091a57c0534edfff1a56005bb18"
+        },
+        {
+          "name": "slovoplet-beta-3.0.1.apk",
+          "bytes": 648168,
+          "sha256": "0b0db1b192bad0046cd4f5a0750a50614a2100f0fc55767004450e3a8cc10e57"
+        }
+      ]
+    },
+    {
+      "tag": "beta-v3.0.0",
+      "sourceReleaseId": 451812296,
+      "originalPublishedAt": "2026-11-19T19:14:08Z",
+      "targetRelease": "https://github.com/iluhin/app.slovoplet.beta/releases/tag/beta-v3.0.0",
+      "assets": [
+        {
+          "name": "checksums.json",
+          "bytes": 1190,
+          "sha256": "2986030c4f9b0b17d48b49326868a8ac0c4cbbe4ea75dff2ecf1294ade2f2f92"
+        },
+        {
+          "name": "components-3.0.zip",
+          "bytes": 104572,
+          "sha256": "eadfd2b069a351aadb81a2abe0ebeedab16602f292ee303cedcc9ea216f89179"
+        },
+        {
+          "name": "manifest-3.0.json",
+          "bytes": 4121,
+          "sha256": "aaf74a0a04a14505d2203761d9319543a7f4ef9b5ca37ddd1711ba903357ef9c"
+        },
+        {
+          "name": "slovoplet-beta-3.0.apk",
+          "bytes": 648135,
+          "sha256": "d14ba61aba0c48717b155218b14261871ec9b09e8e5c35a12c989b4587468f85"
+        }
+      ]
+    }
+  ]
+}
