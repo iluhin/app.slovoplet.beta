@@ -1,0 +1,1730 @@
+/* Словоплёт — клиент игры.
+ * Онлайн: всю проверку делает сервер (api.php), слово в браузер не попадает.
+ * Без сети: те же действия обслуживает автономный движок offline.js на данных с сайта;
+ * такие партии в рейтинг не идут. */
+(() => {
+'use strict';
+
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const KB = ['ЙЦУКЕНГШЩЗХЪ', 'ФЫВАПРОЛДЖЭ', 'ЯЧСМИТЬБЮ'];
+const CODES = { KeyQ:'Й',KeyW:'Ц',KeyE:'У',KeyR:'К',KeyT:'Е',KeyY:'Н',KeyU:'Г',KeyI:'Ш',KeyO:'Щ',KeyP:'З',BracketLeft:'Х',BracketRight:'Ъ',
+  KeyA:'Ф',KeyS:'Ы',KeyD:'В',KeyF:'А',KeyG:'П',KeyH:'Р',KeyJ:'О',KeyK:'Л',KeyL:'Д',Semicolon:'Ж',Quote:'Э',
+  KeyZ:'Я',KeyX:'Ч',KeyC:'С',KeyV:'М',KeyB:'И',KeyN:'Т',KeyM:'Ь',Comma:'Б',Period:'Ю' };
+const THEMES = [['aurora', 'Аврора'], ['midnight', 'Полночь'], ['sunset', 'Закат'], ['matcha', 'Лес'], ['candy', 'Облако'], ['contrast', 'Контраст']];
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const APP = !!window.FIVE_APP;                 // true — игра запущена в приложении
+const APPV = window.FIVE_APP || {};            // его версия: {version, code}
+const OFF = window.FiveOffline || null;        // автономный движок
+let offline = false, netLostOpen = false, backOnline = false;
+
+let S = { cfg: null, user: null, guest: false, game: null, csrf: '', used: 0, limit: 0, daily_done: false };
+let rows = 5, cur = [], rowIdx = 0, busy = false, over = false, begun = false;
+let tiles = [], keyState = {}, history = [], last = null, timerId = null, tStart = 0;
+let soundOn = true;
+let calm = false;
+
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+};
+const fmt = s => s > 0 ? String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0') : '—';
+const wait = ms => new Promise(r => setTimeout(r, ms));
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const icon = n => `<svg class="i"><use href="#i-${n}"/></svg>`;
+
+/* ---------- Снимок виджетов: только сводка, ни слов, ни данных сессии ---------- */
+let widgetReady = false, widgetPending = null, widgetRanking = null;
+let widgetLbAt = Number(store.get('five_widget_lb_check', 0)) || 0;
+const widgetInt = n => Math.max(0, Math.min(2147483647, Math.floor(Number(n) || 0)));
+const widgetColors = value => typeof value === 'string' && /^[apc]{5}$/.test(value) ? value : '';
+const widgetText = (s, max = 80) => typeof s === 'string' ? s.replace(/[\u0000-\u001f\u007f]/g, '').slice(0, max) : '';
+function widgetSaved() {
+  try { return JSON.parse(store.get('five_widget_snapshot', '{}')) || {}; } catch (_) { return {}; }
+}
+function widgetZone(preferred) {
+  const zone = preferred || S.cfg && S.cfg.timezone || 'Europe/Moscow';
+  try { new Intl.DateTimeFormat('ru-RU', { timeZone: zone }).format(); return zone; } catch (_) { return 'Europe/Moscow'; }
+}
+function widgetDay(zone) {
+  if (!offline && /^\d{4}-\d{2}-\d{2}$/.test(S.today || '')) return S.today;
+  const parts = new Intl.DateTimeFormat('en-GB', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
+  const get = key => parts.find(p => p.type === key).value;
+  return get('year') + '-' + get('month') + '-' + get('day');
+}
+function widgetLeaderboard(r, owner) {
+  if (!r || !r.ok || !Array.isArray(r.rows)) return;
+  const sort = ['wins', 'time', 'winrate', 'streak'].includes(r.sort) ? r.sort : 'wins';
+  const own = !offline && S.user && owner === S.user.name ? r.rows.findIndex(p => p.me && p.name === S.user.name) : -1;
+  widgetRanking = {
+    updatedAt: Object.prototype.hasOwnProperty.call(r, 'cached') ? Math.max(0, Number(r.cached) * 1000 || 0) : Date.now(),
+    leaders: r.rows.slice(0, 3).map((p, i) => ({ name: widgetText(p.name), position: i + 1,
+      value: String(sort === 'time' ? fmt(widgetInt(p.best_time)) : sort === 'winrate' ? Math.max(0, Math.min(100, Number(p.rate) || 0)) + '%' : widgetInt(sort === 'streak' ? p.streak : p.wins)) })),
+    myPosition: own < 0 ? 0 : own + 1, sort,
+  };
+  publishWidget();
+}
+// Рейтинг обновляется только при настоящем посещении игры, не из фонового виджета.
+function refreshWidgetRanking() {
+  if (!APP || !S.cfg || offline || document.hidden) return;
+  if (Date.now() - widgetLbAt < 30 * 60 * 1000) return;
+  widgetLbAt = Date.now(); store.set('five_widget_lb_check', String(widgetLbAt));
+  api('leaderboard');
+}
+function publishWidget() {
+  if (!S.cfg) return;
+  const source = offline ? 'offline' : S.user ? 'online' : 'guest';
+  const profile = source === 'online' ? widgetText(S.user.name) : '';
+  const previous = widgetSaved(), same = previous.source === source && previous.profile === profile;
+  const st = offline && OFF ? OFF.stats() : S.user || {};
+  const dist = {}; for (let i = 1; i <= 8; i++) dist[i] = widgetInt(st.dist && st.dist[i]);
+  let colors = same ? widgetColors(previous.colors) : '';
+  const g = S.game;
+  const finished = g && g.over ? (g.guesses || []).map(r => r.c) : same && over && last ? history : [];
+  if (finished.length) colors = widgetColors(finished[finished.length - 1]);
+  if (!same && widgetRanking) widgetRanking.myPosition = 0;
+  // Автономный движок всегда играет случайные слова: это не изменение режима сайта.
+  const cachedDaily = offline && previous.daily;
+  const zone = widgetZone(cachedDaily && cachedDaily.zone), day = widgetDay(zone);
+  const dailyEnabled = offline ? !!(cachedDaily && cachedDaily.enabled === true) : S.cfg.mode === 'daily';
+  const dailyDone = offline ? !!(cachedDaily && cachedDaily.done === true && cachedDaily.day === day) : !!S.daily_done;
+  const snapshot = {
+    schema: 1, updatedAt: Date.now(), profile, source,
+    stats: { games: widgetInt(st.games), wins: widgetInt(st.wins), streak: widgetInt(st.streak), bestTime: widgetInt(st.best_time), dist },
+    live: !!(g && !g.over && !over && (begun || g.started || (g.guesses || []).length)), colors,
+    daily: { enabled: dailyEnabled, done: dailyEnabled && dailyDone, day, zone },
+    ranking: widgetRanking || { updatedAt: 0, leaders: [], myPosition: 0, sort: 'wins' },
+  };
+  store.set('five_widget_snapshot', JSON.stringify(snapshot));
+  try { if (window.FiveApp && typeof FiveApp.widget === 'function') FiveApp.widget(JSON.stringify(snapshot)); } catch (_) {}
+  if (window.BetaWidgets) BetaWidgets.refresh();
+}
+// Нативный onPageFinished может прийти раньше ответа state. Оставляем последний запрос.
+window.FIVE_WIDGET_OPEN = function (route, fresh) {
+  if (!['/', '/game', '/daily', '/lb', '/me'].includes(route)) return false;
+  if (!widgetReady) { widgetPending = [route, fresh === true]; return true; }
+  if (route === '/daily' && offline) { goTo('/', true); toast('Для слова дня нужен интернет'); return true; }
+  if (route === '/daily' && S.cfg.mode !== 'daily') { goTo('/', true); toast('Слово дня сейчас отключено'); return true; }
+  goTo(route);
+  if (fresh === true && (route === '/game' || route === '/daily') && (S.user || S.guest || offline)) {
+    // Даже ещё не начатое слово остаётся на поле. Новую партию разрешает тот же замок.
+    if ((!S.game || S.game.over || over) && !busy && !lockMsg()) newGame();
+  }
+  return true;
+};
+
+/* ---------- API ---------- */
+async function api(a, body) {
+  if (offline) { const r = await OFF.call(a, body); if (a === 'leaderboard') widgetLeaderboard(r, ''); return r; }
+  const widgetOwner = S.user && S.user.name;
+  if (a === 'leaderboard') { widgetLbAt = Date.now(); store.set('five_widget_lb_check', String(widgetLbAt)); }
+  const opt = body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF': S.csrf }, body: JSON.stringify(body) };
+  let r, j;
+  try { r = await fetch('api.php?a=' + a, opt); } catch (e) { return { ok: false, net: true, error: 'Нет связи с сервером' }; }
+  try { j = await r.json(); } catch (e) { return { ok: false, error: 'Сервер вернул некорректный ответ' }; }
+  if (j && j.csrf && !j.ok) { await loadState(); j.error = 'Сессия обновлена, повторите действие'; }
+  if (a === 'leaderboard') widgetLeaderboard(j, widgetOwner);
+  if (a === 'leaderboard' && OFF) OFF.cacheLeaderboard(j);   // пригодится без сети
+  return j;
+}
+function merge(res) {
+  S.csrf = res.csrf; S.cfg = res.config; S.user = res.user; S.guest = res.guest;
+  S.used = res.used; S.limit = res.limit; S.daily_done = res.daily_done; S.game = res.game; S.today = res.today;
+  publishWidget();
+}
+async function loadState() { const r = await api('state'); if (r.ok) merge(r); return r; }
+
+/* ---------- Звук / вибрация ---------- */
+let actx = null;
+function tone(f, d = .12, type = 'sine', v = .07, at = 0) {
+  if (!soundOn) return;
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    if (actx.state === 'suspended') actx.resume();
+    const t = actx.currentTime + at, o = actx.createOscillator(), g = actx.createGain();
+    o.type = type; o.frequency.setValueAtTime(f, t);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + .01); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+    o.connect(g).connect(actx.destination); o.start(t); o.stop(t + d + .02);
+  } catch (e) {}
+}
+const sfx = {
+  type: () => tone(560 + Math.random() * 60, .05, 'triangle', .05),
+  del: () => tone(320, .05, 'triangle', .04),
+  tick: i => tone(360 + i * 70, .12, 'sine', .07),
+  err: () => { tone(170, .18, 'sawtooth', .04); tone(150, .2, 'sawtooth', .04, .09); },
+  win: () => [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, .28, 'triangle', .08, i * .09)),
+  lose: () => [392, 349, 311, 262].forEach((f, i) => tone(f, .35, 'sine', .07, i * .16)),
+  ok: () => { tone(660, .1, 'sine', .06); tone(880, .14, 'sine', .06, .08); },
+};
+const buzz = p => { try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} };
+
+/* ---------- UI-хелперы ---------- */
+function toast(msg, type = '', ms = 2300) {
+  const t = document.createElement('div');
+  t.className = 'toast ' + type; t.textContent = msg;
+  $('#toasts').appendChild(t);
+  while ($('#toasts').children.length > 3) $('#toasts').firstChild.remove();
+  setTimeout(() => { t.classList.add('out'); setTimeout(() => t.remove(), 320); }, ms);
+}
+const openM = id => { $('#' + id).classList.add('open'); };
+const closeM = id => { $('#' + id).classList.remove('open'); };
+const anyModal = () => !!$('.modal.open');
+
+function setTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  store.set('five_theme', t);
+  const m = $('meta[name=theme-color]');
+  if (m) m.content = getComputedStyle(document.documentElement).getPropertyValue('--bg1').trim() || '#0a0c1f';
+  $$('.theme-card').forEach(c => c.classList.toggle('active', c.dataset.theme === t));
+}
+
+function setSoundIcon() {
+  $('#b-sound').innerHTML = `<svg class="i"><use href="#i-${soundOn ? 'vol' : 'mute'}"/></svg>`;
+  $('#b-sound').classList.toggle('off', !soundOn);
+}
+
+/* ---------- Таймер: считаем только активный экран ---------- */
+/**
+ * Время за партией должно быть честным: пока игра свёрнута (или вкладка не на
+ * виду), таймер стоит. Накопитель активных миллисекунд — единственный
+ * источник правды: от него и цифры на экране, и то, что уходит на сервер.
+ * Правило простое и предсказуемое: время идёт, пока страница видна.
+ */
+let actMs = 0, actFrom = 0, sentMs = 0, awayAt = 0, flushBusy = false;
+
+const activeMs = () => actMs + (actFrom ? Date.now() - actFrom : 0);
+function actPause() { if (actFrom) { actMs += Date.now() - actFrom; actFrom = 0; } }
+function actResume() { if (!actFrom && timerId) actFrom = Date.now(); }
+
+/**
+ * Досылает серверу накопленные миллисекунды. Счётчик отправленного двигаем
+ * заранее, а при обрыве связи возвращаем назад — тогда то же время уедет со
+ * следующей попыткой и ничего не потеряется.
+ */
+async function flushMs(force) {
+  if (!begun || over || flushBusy || !S.game || S.game.over) return;
+  const d = Math.round(activeMs() - sentMs);
+  if (d < (force ? 1000 : 15000)) return;
+  flushBusy = true; sentMs += d;
+  const r = await api('tick', { ms: d });
+  flushBusy = false;
+  if (r && r.net) sentMs -= d;
+}
+
+/** Миллисекунды, которые нужно приложить к следующему ходу. */
+function takeMs() { const d = Math.round(Math.max(0, activeMs() - sentMs)); sentMs += d; return d; }
+
+function startTimer(elapsed = 0) {
+  stopTimer();
+  actMs = elapsed * 1000; sentMs = actMs; actFrom = document.hidden ? 0 : Date.now();
+  tStart = Date.now() - elapsed * 1000;
+  const tick = () => {
+    $('#timer-t').textContent = fmt(Math.floor(activeMs() / 1000)).replace('—', '00:00');
+    flushMs(false);
+  };
+  tick();
+  $('#timer').classList.add('run');
+  timerId = setInterval(tick, 250);
+}
+function stopTimer(final) {
+  clearInterval(timerId); timerId = null;
+  actFrom = 0;
+  $('#timer').classList.remove('run');
+  if (final !== undefined) $('#timer-t').textContent = fmt(final);
+}
+function resetTimer() { stopTimer(); actMs = 0; sentMs = 0; awayAt = 0; $('#timer-t').textContent = '00:00'; }
+
+/* Порог, после которого возвращение показываем окном «Партия на паузе». 0 — не показывать. */
+const pauseAfterMs = () => Math.max(0, Number((S.cfg && S.cfg.pause_min) || 0)) * 60000;
+
+function watchActiveTime() {
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { actPause(); awayAt = Date.now(); flushMs(true); return; }
+    const away = awayAt ? Date.now() - awayAt : 0;
+    awayAt = 0;
+    const live = begun && !over && S.game && !S.game.over;
+    if (live && pauseAfterMs() && away >= pauseAfterMs()) {
+      $('#pause-h').textContent = t('pause_title', 'Партия на паузе');
+      $('#pause-p').textContent = t('pause_note', 'Таймер остановился, пока игра была свёрнута. Продолжим?');
+      $('#pause-t').textContent = fmt(Math.floor(activeMs() / 1000));
+      openM('m-pause');
+      return;                      // таймер пойдёт, когда человек вернётся за игру
+    }
+    actResume();
+  });
+  // страницу могут закрыть или заморозить — отдаём накопленное
+  addEventListener('pagehide', () => { actPause(); flushMs(true); });
+  $('#pause-go').onclick = () => { closeM('m-pause'); actResume(); };
+}
+
+/* ---------- Поле ---------- */
+
+/**
+ * Размер плитки по фактическому свободному месту, а не по формуле от высоты
+ * окна: на вытянутых и планшетных экранах поле наезжало на клавиатуру, а в
+ * две колонки — вылезало за свою колонку.
+ */
+function fitBoard() {
+  const st = $('.stage'), b = $('#board');
+  if (!st || !b || !b.children.length) return;
+  const h = st.clientHeight, w = st.clientWidth;
+  if (!h || !w) return;
+  const cs = getComputedStyle(b);
+  const gap = parseFloat(cs.rowGap) || 8;
+  const max = parseFloat(cs.getPropertyValue('--tile-max')) || 66;
+  const n = b.children.length;
+  const byH = (h - gap * (n - 1)) / n;
+  const byW = (w - gap * 4) / 5;
+  const tile = Math.max(26, Math.min(max, byH, byW));
+  b.style.setProperty('--tile', Math.floor(tile) + 'px');
+}
+
+function watchBoardSize() {
+  const st = $('.stage');
+  if (!st) return;
+  if (window.ResizeObserver) new ResizeObserver(() => fitBoard()).observe(st);
+  addEventListener('resize', fitBoard);
+  addEventListener('orientationchange', () => setTimeout(fitBoard, 120));
+}
+
+function buildBoard() {
+  const b = $('#board');
+  b.innerHTML = ''; b.style.setProperty('--rows', rows); b.style.removeProperty('--tile');
+  tiles = [];
+  for (let r = 0; r < rows; r++) {
+    const row = document.createElement('div'); row.className = 'row'; row.setAttribute('role', 'row');
+    const arr = [];
+    for (let c = 0; c < 5; c++) {
+      const t = document.createElement('div'); t.className = 'tile'; t.setAttribute('role', 'gridcell');
+      row.appendChild(t); arr.push(t);
+    }
+    b.appendChild(row); tiles.push(arr);
+  }
+  const p = $('#pips'); p.innerHTML = '';
+  for (let i = 0; i < rows; i++) p.appendChild(document.createElement('i'));
+  fitBoard();
+}
+
+function buildKeyboard() {
+  const kb = $('#kb'); kb.innerHTML = '';
+  KB.forEach((line, idx) => {
+    const r = document.createElement('div'); r.className = 'kr';
+    if (idx === 2) r.appendChild(mkKey('ENTER', icon('enter'), 'wide enter'));
+    [...line].forEach(l => r.appendChild(mkKey(l, l, '')));
+    if (idx === 2) r.appendChild(mkKey('BACK', icon('back'), 'wide'));
+    kb.appendChild(r);
+  });
+}
+function mkKey(k, html, cls) {
+  const b = document.createElement('button');
+  b.className = 'key ' + cls; b.dataset.k = k; b.innerHTML = html;
+  b.setAttribute('aria-label', k === 'ENTER' ? 'Ввод' : k === 'BACK' ? 'Стереть' : k);
+  return b;
+}
+
+function paintRows() {
+  tiles.forEach((arr, r) => {
+    const rowEl = arr[0].parentElement;
+    rowEl.classList.toggle('future', r > rowIdx && !over);
+    if (r !== rowIdx || over) return;
+    arr.forEach((t, c) => {
+      const ch = cur[c] || '';
+      t.textContent = ch;
+      t.classList.toggle('f', !!ch);
+      t.classList.toggle('cur', cur.length < 5 && c === cur.length);
+    });
+  });
+  $$('#pips i').forEach((p, i) => p.classList.toggle('used', i < rowIdx || (over && i <= rowIdx)));
+}
+
+function setKeyState(letter, s) {
+  const rank = { a: 1, p: 2, c: 3 };
+  if ((rank[keyState[letter]] || 0) >= rank[s]) return;
+  keyState[letter] = s;
+  const k = $(`.key[data-k="${letter}"]`); if (k) k.dataset.s = s;
+}
+
+function resetBoardState() {
+  cur = []; rowIdx = 0; over = false; begun = false; busy = false; keyState = {}; history = []; last = null;
+  document.body.classList.remove('over');
+  tiles.forEach(arr => arr.forEach(t => { t.className = 'tile'; t.textContent = ''; delete t.dataset.s; }));
+  $$('.key').forEach(k => delete k.dataset.s);
+  resetTimer();
+  quipReset();
+  if ($('#says')) $('#says').innerHTML = '';
+}
+
+/* ---------- Ввод ---------- */
+function typeLetter(l) {
+  if (busy || over || !S.game || cur.length >= 5 || anyModal()) return;
+  if (!begun) { begun = true; startTimer(0); api('begin', {}); publishWidget(); }
+  actResume();
+  quipIdleStart();
+  cur.push(l); paintRows(); sfx.type();
+  const t = tiles[rowIdx][cur.length - 1]; t.classList.remove('pop'); void t.offsetWidth; t.classList.add('pop');
+}
+function delLetter() {
+  if (busy || over || !cur.length) return;
+  // Набрал пять букв и стёр — и так третий раз подряд с тем же словом.
+  if (cur.length === 5) {
+    const w = cur.join('');
+    erased[w] = (erased[w] || 0) + 1;
+    if (erased[w] >= 3) quip('erase', true);
+  }
+  cur.pop(); paintRows(); sfx.del();
+  quipIdleStart();
+}
+function shakeRow() {
+  const row = tiles[rowIdx][0].parentElement;
+  row.classList.remove('shake'); void row.offsetWidth; row.classList.add('shake');
+  sfx.err(); buzz([40, 30, 40]);
+}
+
+async function submit() {
+  if (busy || over || !S.game) return;
+  if (cur.length < 5) { shakeRow(); toast('Нужно 5 букв'); return; }
+  busy = true;
+  const ms = takeMs();
+  const res = await api('guess', { word: cur.join(''), ms });
+  if (!res.ok) {
+    if (res.net) { sentMs -= ms; busy = false; netLost(); return; }
+    if (res.resync) { await loadState(); startFromState(); }
+    else {
+      if (res.shake) shakeRow();
+      // Три отказа словаря подряд — повод посочувствовать, а не ругаться.
+      if (res.code === 'nodict' && ++noDict >= 3) { noDict = 0; if (quip('nodict')) { busy = false; return; } }
+      toast(res.error || 'Ошибка', 'err');
+      busy = false;
+    }
+    return;
+  }
+  if (res.attempt === 1) S.used++;
+  const letters = cur.slice();
+  history.push(res.colors.join(''));
+  await reveal(rowIdx, letters, res.colors);
+  if (res.over) { finish(res); return; }
+  quipAfterGuess(letters.join(''), res.colors.join(''));
+  quipIdleStart();
+  rowIdx++; cur = []; busy = false; paintRows();
+}
+
+async function reveal(r, letters, colors, instant) {
+  const step = instant ? 0 : (calm ? 70 : 290), dur = calm ? 220 : 560;
+  const arr = tiles[r];
+  arr.forEach(t => t.classList.remove('cur'));
+  if (instant) {
+    arr.forEach((t, i) => { t.textContent = letters[i]; t.classList.add('f'); t.dataset.s = colors[i]; setKeyState(letters[i], colors[i]); });
+    return;
+  }
+  arr.forEach((t, i) => {
+    setTimeout(() => {
+      t.style.setProperty('--flip', dur + 'ms'); t.classList.add('flip'); sfx.tick(i);
+      setTimeout(() => { t.dataset.s = colors[i]; setKeyState(letters[i], colors[i]); }, dur / 2);
+      setTimeout(() => t.classList.remove('flip'), dur);
+    }, i * step);
+  });
+  await wait(4 * step + dur + 40);
+}
+
+/* ---------- Конец партии ---------- */
+async function finish(res) {
+  over = true;
+  quipIdleStop();
+  lossRun = res.win ? 0 : lossRun + 1;
+  const prevBest = S.user ? S.user.best_time : 0;
+  if (res.player) S.user = res.player;
+  last = { win: res.win, word: res.word, time: res.time, attempts: history.length, easy: !!res.easy, record: !!(res.win && S.user && (!prevBest || res.time < prevBest) && S.user.wins > 1) };
+  // Итог теперь есть — значит, и кнопка «Итог» должна быть. Без этой строки
+  // она оставалась спрятанной до следующей партии: при запуске с
+  // незаконченной игрой итога ещё нет, кнопку прячут, а вернуть её было
+  // некому.
+  $('#pb-result').style.display = '';
+  if (S.cfg.mode === 'daily') S.daily_done = true;
+  publishWidget();
+  stopTimer(res.time);
+  paintRows();
+  if (res.win) {
+    sfx.win(); buzz([30, 40, 60]);
+    tiles[rowIdx].forEach((t, i) => setTimeout(() => { t.classList.add('bounce'); }, i * 100));
+    if (S.cfg.confetti && !reduced) setTimeout(confetti, 350);
+  } else {
+    sfx.lose(); buzz(200);
+    // Загаданное слово покажет окно итога — всплывающее было лишним.
+    // Недобранную строку можно осыпать — по желанию владельца и никогда
+    // отправленные попытки: стирать чужую работу — верный способ разозлить.
+    if (S.cfg.quip_drop && cur.length && !calm) {
+      const row = tiles[rowIdx];
+      cur.forEach((_, i) => setTimeout(() => row[i].classList.add('fall'), i * 70));
+      setTimeout(() => { cur = []; row.forEach(t => t.classList.remove('fall')); paintRows(); }, 700);
+    }
+  }
+  store.set('five_played', String(Number(store.get('five_played', 0)) + 1));
+  updateInstallUi();
+  updateStreak(); updateLock(); renderSide();
+  document.body.classList.add('over');
+  await wait(res.win ? 1500 : 1100);
+  busy = false;
+  showResult();
+}
+
+function lockMsg() {
+  if (S.cfg.mode === 'daily' && S.daily_done) return 'Слово дня сыграно. Новое — завтра!';
+  if (S.limit > 0 && S.used >= S.limit) return `Лимит игр на сегодня (${S.limit}) исчерпан. Приходите завтра!`;
+  return '';
+}
+function updateLock() {
+  const m = lockMsg();
+  $('#pb-new').disabled = !!m; $('#r-again').disabled = !!m;
+}
+
+function showResult() {
+  if (!last) return;
+  const g = last;
+  const titles = { 1: 'Гениально!', 2: 'Великолепно!', 3: 'Блестяще!' };
+  $('#r-title').textContent = g.win ? (titles[g.attempts] || 'Победа!') : 'Не угадали';
+  $('#r-sub').textContent = g.win ? 'Слово разгадано' : 'Загаданное слово:';
+  $('#r-word').innerHTML = [...g.word].map((l, i) => `<div class="tile" data-s="${g.win ? 'c' : 'p'}" style="--i:${i}">${l}</div>`).join('');
+  let b = `<span class="badge">${icon('clock')} ${fmt(g.time)}</span><span class="badge">Попыток: ${g.attempts}/${rows}</span>`;
+  if (g.record) b += `<span class="badge rec">★ Личный рекорд</span>`;
+  const say = quipForResult(g);
+  if (S.user && S.user.streak > 1) b += `<span class="badge streak">${icon('flame')} Серия ${S.user.streak}</span>`;
+  if (offline) {
+    const st = OFF.stats();
+    if (st.streak > 1) b += `<span class="badge streak">${icon('flame')} Серия ${st.streak}</span>`;
+    b += `<span class="badge">Офлайн: результат не идёт в рейтинг</span>`;
+  } else if (S.guest) b += `<span class="badge">Гость: результат не сохранён</span>`;
+  $('#r-badges').innerHTML = b;
+  const qb = $('#r-quip');
+  if (qb) { qb.textContent = say; qb.hidden = !say; }
+  updateReportBtn();
+  loadDef(g.word);
+  const m = lockMsg();
+  $('#r-next').textContent = m || (S.limit > 0 ? `Игр сегодня: ${S.used} из ${S.limit}` : '');
+  updateLock();
+  openM('m-res');
+}
+
+const defCache = {};
+function loadDef(word) {
+  const box = $('#r-def'), link = $('#r-wiki'), w = encodeURIComponent(word.toLowerCase());
+  const search = 'https://yandex.ru/search/?text=' + encodeURIComponent('значение слова ' + word.toLowerCase());
+  const setLink = found => {
+    link.href = found && S.cfg.wiki ? S.cfg.wiki.replace('{word}', w) : search;
+    $('#r-wiki-t').textContent = found && S.cfg.wiki ? 'Подробнее' : 'Найти значение';
+  };
+  setLink(false);
+  if (!S.cfg.def) { box.hidden = true; if (S.cfg.wiki) setLink(true); return; }
+  const render = r => {
+    if (!last || last.word !== word) return;
+    const m = (r && r.ok && r.meanings) || [];
+    if (!m.length) { box.innerHTML = '<p class="def-none">Толкование не нашлось — попробуйте поиск.</p>'; setLink(false); return; }
+    box.innerHTML = `<div class="def-h">Значение слова</div>` + (m.length > 1 ? '<ol>' + m.map(x => `<li>${esc(x)}</li>`).join('') + '</ol>' : `<p>${esc(m[0])}</p>`) + `<div class="def-src">${esc(r.src || 'Викисловарь')}</div>`;
+    setLink(true);
+  };
+  box.hidden = false;
+  if (defCache[word]) { render(defCache[word]); return; }
+  box.innerHTML = '<div class="def-h">Значение слова</div><div class="shim"></div><div class="shim s2"></div>';
+  api('define&word=' + encodeURIComponent(word)).then(r => { if (r && r.ok && !r.error) defCache[word] = r; render(r); });
+}
+
+function shareText() {
+  const g = last; if (!g) return '';
+  const map = { c: '🟨', p: '⬜', a: '⬛' };
+  const grid = history.map(h => [...h].map(x => map[x]).join('')).join('\n');
+  return `${S.cfg.title} ${g.win ? g.attempts : 'X'}/${rows} · ${fmt(g.time)}\n${grid}\n${location.origin}${location.pathname}`;
+}
+
+/* ---------- Тексты с сайта ----------
+   Строки приходят в бандле (config.texts). Нет ключа — показываем встроенный
+   вариант, поэтому пустой бандл и старые сборки ничего не ломают.
+   Подстановки: {n}, {words}, {date}. */
+function t(key, fallback, vars) {
+  const src = (S.cfg && S.cfg.texts && S.cfg.texts[key]) || fallback || '';
+  const fill = x => String(x).replace(/\{(\w+)\}/g, (m, k) => (vars && k in vars ? vars[k] : m));
+  return Array.isArray(src) ? src.map(fill) : fill(src);
+}
+
+/* ---------- Данные с сайта в статичную оболочку ---------- */
+function applyCfg() {
+  const c = S.cfg; if (!c) return;
+  document.title = c.title + (c.tagline ? ' — ' + c.tagline : '');
+  $$('[data-cfg="title"]').forEach(el => { el.textContent = c.title; });
+  $$('[data-cfg="tagline"]').forEach(el => { el.textContent = c.tagline; });
+  const ft = $('#foot-text');
+  if (ft) { ft.textContent = c.footer || ''; ft.hidden = !c.footer; }
+  renderNoticeBar();
+  document.body.classList.toggle('cvd', !!c.cvd);
+  const rp = $('#rp-reasons');
+  if (rp && !rp.children.length && c.reasons) {
+    rp.innerHTML = Object.keys(c.reasons).map(k => `<button type="button" class="reason" data-r="${esc(k)}">${esc(c.reasons[k])}</button>`).join('');
+  }
+}
+
+/* ---------- Обновление приложения ----------
+   Проверку и показ делает веб-часть: оформление берётся из текущей темы.
+   Скачивание и установку выполняет нативная часть через мост FiveApp. */
+const vrank = v => { const p = String(v || '').split('.').map(x => parseInt(x, 10) || 0); return (p[0] || 0) * 100 + (p[1] || 0); };
+const fmtSize = b => {
+  b = Number(b) || 0;
+  return b >= 1048576 ? (b / 1048576).toFixed(1).replace('.', ',') + ' МБ' : Math.max(1, Math.round(b / 1024)) + ' КБ';
+};
+let updInfo = null, updForced = false;
+
+/** Игру поставил магазин? Тогда и обновляет её он — мы не вмешиваемся. */
+const STORES = ['ru.vk.store', 'com.android.vending', 'com.huawei.appmarket',
+                'com.sec.android.app.samsungapps', 'com.xiaomi.mipicks', 'com.nearme.gamecenter'];
+const fromStore = () => STORES.indexOf(String(APPV.from || '')) > -1;
+
+async function checkUpdate() {
+  if (APPV.channel === 'beta') return; // beta web components use the pinned native OTA channel
+  if (!APP || offline || fromStore()) return;
+  const mineCode = Number(APPV.code || 0), mineName = String(APPV.shellVersion || APPV.version || '');
+  let j = null;
+  try {
+    const r = await fetch('update.php?a=check&code=' + mineCode, { cache: 'no-store' });
+    j = await r.json();
+  } catch (e) { return; }
+  if (!j || !j.ok) return;
+  updInfo = j;
+  updForced = !!j.minVersion && vrank(mineName) < vrank(j.minVersion);
+  const fresh = Number(j.versionCode || 0) > mineCode;
+  if (!fresh && !updForced) return;
+  if (!updForced && Date.now() < Number(store.get('five_upd_snooze', 0))) return;   // «Позже» — на сутки
+  showUpdate();
+}
+
+/** Заметки о выпуске: первая строка — подзаголовок, строки с маркером — список. */
+function updNotesHtml(list) {
+  // Номер версии над заметкой нужен, только когда пропущено несколько
+  // выпусков: при одном он уже есть в заголовке окна.
+  const many = (list || []).length > 1;
+  return (list || []).map(x => {
+    const lines = String(x.notes || '').split('\n').map(l => l.trim()).filter(Boolean);
+    const head = [], items = [];
+    lines.forEach(l => {
+      // Пункт может быть перенесён на несколько строк — продолжение
+      // приклеиваем к предыдущему, иначе фраза обрывалась на середине.
+      if (/^[•\-*]\s*/.test(l)) items.push(l.replace(/^[•\-*]\s*/, ''));
+      else if (items.length) items[items.length - 1] += ' ' + l;
+      else head.push(l);
+    });
+    return (many ? `<div class="v">${esc(x.version)}</div>` : '')
+      + (head.length ? `<p>${esc(head.join(' '))}</p>` : '')
+      + (items.length ? `<ul>${items.map(i => `<li>${esc(i)}</li>`).join('')}</ul>` : '');
+  }).join('');
+}
+
+function showUpdate(tries) {
+  if (!updInfo || !$('#m-upd')) return;
+  // Пока человек не вошёл в игру, предложение обновиться не лезет поверх входа.
+  // Обязательное обновление — исключение: играть всё равно нельзя.
+  if (!updForced && $('#m-auth') && $('#m-auth').classList.contains('open')) {
+    const n = (tries || 0) + 1;
+    if (n <= 30) setTimeout(() => showUpdate(n), 2000);
+    return;
+  }
+  // Если имя версии не изменилось, обновилась только сборка — так и пишем,
+  // иначе «Доступно обновление 2.3» поверх установленной 2.3 сбивает с толку.
+  const sameName = String(updInfo.versionName || '') === String(APPV.shellVersion || APPV.version || '');
+  $('#upd-title').textContent = updForced
+    ? 'Нужно обновить игру'
+    : sameName
+      ? t('upd_rebuild', 'Техническое обновление {version}', { version: updInfo.versionName })
+      : t('upd_ready', 'Доступно обновление {version}', { version: updInfo.versionName });
+  $('#upd-sub').textContent = updForced
+    ? t('upd_forced', 'Эта версия больше не поддерживается. Чтобы играть дальше, установите свежую.')
+    : 'Версия ' + updInfo.versionName + ' · ' + fmtSize(updInfo.size);
+  $('#upd-notes').innerHTML = updNotesHtml(updInfo.notesList);
+  $('#upd-bar').hidden = true;
+  $('#upd-bar-i').style.width = '0';
+  $('#upd-msg').textContent = '';
+  $('#upd-go').disabled = false;
+  $('#upd-later').hidden = updForced;
+  $('#m-upd .close').hidden = updForced;
+  if (updForced) $('#m-upd').dataset.lock = '1'; else delete $('#m-upd').dataset.lock;
+  document.body.classList.toggle('upd-blocked', updForced);
+  openM('m-upd');
+}
+
+/**
+ * Файл отдаём браузеру: он скачает и предложит установить своим разрешением.
+ * Своего разрешения на установку у игры нет — так требует RuStore.
+ */
+function startUpdate() {
+  if (!(window.FiveApp && FiveApp.update)) { toast('Свежую версию можно скачать на сайте', 'err', 3500); return; }
+  try {
+    FiveApp.update();
+    $('#upd-msg').textContent = t('upd_browser', 'Файл скачивается в браузере — откройте его, чтобы установить.');
+  } catch (e) {
+    $('#upd-msg').textContent = 'Не удалось открыть загрузку. Скачайте игру на сайте.';
+  }
+}
+
+/**
+ * Осталось от прежних сборок, где игра качала файл сама. Теперь этим занят
+ * браузер, но старые сборки ещё могут позвать эту функцию — пусть будет.
+ */
+window.onFiveUpdate = (state, value) => {
+  const msg = $('#upd-msg');
+  if (!msg) return;
+  if (state === 'progress') msg.textContent = 'Скачиваю… ' + Math.max(0, Math.min(100, Number(value) || 0)) + '%';
+  else if (state === 'install') msg.textContent = 'Файл проверен, запускаю установку…';
+  else if (state === 'error') msg.textContent = String(value || 'Не удалось обновить');
+};
+
+/* ---------- Предложение поставить приложение ----------
+   Только в браузере: в приложении (APP) и в уже установленном PWA ничего не показываем.
+   И не лезем к человеку, пока он не сыграл или не зашёл во второй раз. */
+const UA = navigator.userAgent || '';
+const isAndroid = /Android/i.test(UA);
+const isIOS = /iPhone|iPad|iPod/i.test(UA) || (/Macintosh/.test(UA) && (navigator.maxTouchPoints || 0) > 1);
+const standalone = () => {
+  try {
+    return matchMedia('(display-mode: standalone)').matches
+        || matchMedia('(display-mode: fullscreen)').matches
+        || navigator.standalone === true;
+  } catch (e) { return false; }
+};
+const canOffer = () => !APP && !offline && !standalone();
+let pwaPrompt = null, apkInfo = null;
+
+const hideInstall = days => store.set('five_inst_hide', String(Date.now() + days * 864e5));
+
+/** Есть ли на сайте APK и какой он. Спрашиваем один раз и только когда нужно. */
+async function apkMeta() {
+  if (apkInfo !== null) return apkInfo;
+  try {
+    const r = await fetch('update.php?a=check', { cache: 'no-store' });
+    const j = await r.json();
+    apkInfo = j && j.ok ? j : false;
+  } catch (e) { apkInfo = false; }
+  return apkInfo;
+}
+
+function updateInstallUi() {
+  const bar = $('#instbar'), foot = $('#foot-app');
+  if (!bar) return;
+  if (!canOffer()) { bar.hidden = true; if (foot) foot.hidden = true; return; }
+  if (foot) foot.hidden = false;
+  const quiet = Date.now() < Number(store.get('five_inst_hide', 0));
+  const warm = Number(store.get('five_visits', 0)) >= 2 || Number(store.get('five_played', 0)) >= 1;
+  bar.hidden = quiet || !warm;
+}
+
+async function openInstall() {
+  const acts = $('#inst-actions'), steps = $('#inst-steps'), note = $('#inst-note'), sub = $('#inst-sub'), qr = $('#inst-qr');
+  acts.innerHTML = '<div class="empty">Смотрю, что доступно на этом устройстве…</div>';
+  steps.hidden = true; steps.innerHTML = ''; note.textContent = '';
+  if (qr) qr.hidden = true;
+  openM('m-install');
+
+  const apk = await apkMeta();
+  const size = apk && apk.size ? Math.max(1, Math.round(apk.size / 1024)) : 0;
+  let html = '';
+
+  if (isAndroid && apk) {
+    sub.textContent = 'Приложение для Android — скачивается с этого сайта.';
+    html += `<a class="btn primary block" href="update.php?a=download">${icon('dl')} Скачать приложение · ${esc(apk.versionName)}, ${size} КБ</a>`;
+    if (pwaPrompt) html += `<button class="btn block" id="inst-pwa">${icon('phone')} Или установить из браузера</button>`;
+    note.textContent = 'Android попросит разрешить установку из этого источника — обычный шаг для приложений не из Google Play. Дальше игра будет обновляться сама.';
+  } else if (isIOS) {
+    sub.textContent = 'На iPhone игра ставится прямо из Safari.';
+    steps.hidden = false;
+    steps.innerHTML = '<li>Нажмите «Поделиться» в нижней панели Safari</li>'
+      + '<li>Выберите «На экран „Домой“»</li>'
+      + '<li>Запускайте игру с иконки — как обычное приложение</li>';
+    note.textContent = 'Отдельного приложения в App Store пока нет, но ярлык из Safari работает так же: свой экран без браузера и игра без интернета.';
+  } else {
+    // На компьютере файл качать некуда: показываем код, который снимают телефоном.
+    sub.textContent = 'Снимите код телефоном — игра встанет туда.';
+    if (qr) qr.hidden = false;
+    if (pwaPrompt) html += `<button class="btn block" id="inst-pwa">${icon('phone')} Или установить в этом браузере</button>`;
+    if (apk) html += `<a class="linkbtn" href="update.php?a=download" style="align-self:center">${icon('dl')} Скачать файл на этот компьютер · ${esc(apk.versionName)}, ${size} КБ</a>`;
+    note.textContent = 'Файл нужен редко — например, чтобы поставить игру на планшет без камеры. Обычно проще снять код.';
+  }
+
+  html += '<button class="linkbtn" id="inst-never" style="align-self:center">Больше не предлагать</button>';
+  acts.innerHTML = html;
+
+  const pwa = $('#inst-pwa');
+  if (pwa) pwa.onclick = async () => {
+    if (!pwaPrompt) return;
+    try {
+      pwaPrompt.prompt();
+      const r = await pwaPrompt.userChoice;
+      pwaPrompt = null;
+      if (r && r.outcome === 'accepted') { hideInstall(3650); closeM('m-install'); toast('Игра установлена', 'ok'); }
+    } catch (e) { toast('Браузер не дал установить — попробуйте меню браузера', 'err'); }
+    updateInstallUi();
+  };
+  $('#inst-never').onclick = () => { hideInstall(3650); closeM('m-install'); updateInstallUi(); toast('Хорошо, больше не предлагаем', 'ok'); };
+}
+
+/* ---------- Автономный режим ---------- */
+const fmtDate = ts => {
+  const d = new Date(ts * 1000);
+  return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' }) + ', ' + d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+};
+
+/** 1484 слова, 21 слово, 5 слов — чтобы подпись читалась по-русски. */
+const plural = (n, f) => {
+  const a = Math.abs(n) % 100, b = a % 10;
+  return f[a > 10 && a < 20 ? 2 : b > 1 && b < 5 ? 1 : b === 1 ? 0 : 2];
+};
+
+/* ---------- Сообщения от владельца сайта ---------- */
+
+/** Плашка под шапкой: висит, пока её не закроют. Правка текста — новая плашка. */
+function renderNoticeBar() {
+  const bar = $('#msgbar');
+  if (!bar) return;
+  const n = S.cfg && S.cfg.notices && S.cfg.notices.bar;
+  if (!n || !n.text || store.get('five_bar_hide', '') === n.id) { bar.hidden = true; return; }
+  $('#msgbar-t').textContent = n.text;
+  const go = $('#msgbar-go');
+  if (n.url && n.btn) { go.textContent = n.btn; go.href = n.url; go.hidden = false; }
+  else { go.hidden = true; go.removeAttribute('href'); }
+  bar.hidden = false;
+}
+
+/** Всплывающее сообщение: показываем один раз, после того как игрок вошёл в игру. */
+function showNoticeMsg(tries) {
+  const n = S.cfg && S.cfg.notices && S.cfg.notices.msg;
+  if (!n || !n.text || store.get('five_msg_seen', '') === n.id) return;
+  if ($('#m-auth') && $('#m-auth').classList.contains('open')) {
+    const k = (tries || 0) + 1;
+    if (k <= 30) setTimeout(() => showNoticeMsg(k), 2000);
+    return;
+  }
+  store.set('five_msg_seen', n.id);
+  toast(n.text, '', 6000);
+}
+
+/**
+ * Сообщения приходят не только при запуске: раз в полторы минуты и при
+ * возвращении в игру спрашиваем сайт, не появилось ли новое. Запрос условный
+ * (ETag), поэтому обычно это пустой ответ «ничего не изменилось».
+ */
+let noticeAt = 0;
+async function pollNotices(force) {
+  if (!S.cfg || offline) return;
+  const now = Date.now();
+  if (!force && now - noticeAt < 80000) return;
+  noticeAt = now;
+  try {
+    const r = await fetch('api.php?a=bundle', { cache: 'no-cache' });
+    if (!r.ok) return;
+    const j = await r.json();
+    if (!j || !j.ok || !j.config) return;
+    S.cfg.notices = j.config.notices || { msg: null, bar: null };
+  } catch (e) { return; }
+  renderNoticeBar();
+  showNoticeMsg();
+}
+
+function watchNotices() {
+  setInterval(() => { if (!document.hidden) { pollNotices(); refreshWidgetRanking(); } }, 90000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { pollNotices(); refreshWidgetRanking(); } });
+  addEventListener('online', () => pollNotices(true));
+}
+
+/**
+ * Словарь пополнили (или подчистили) — говорим об этом один раз.
+ * Считает сам клиент, сравнивая новый бандл с прошлым, поэтому правка словаря
+ * в админке доезжает до игрока без новой сборки приложения.
+ */
+function showWordsNews(tries) {
+  if (!OFF || !OFF.news) return;
+  const n = OFF.news();
+  if (!n) return;
+  // Пока человек не вошёл в игру, сообщение ему не на чем показывать.
+  if ($('#m-auth') && $('#m-auth').classList.contains('open')) {
+    const k = (tries || 0) + 1;
+    if (k <= 30) setTimeout(() => showWordsNews(k), 2000);
+    return;
+  }
+  OFF.newsSeen();
+  const say = c => `${c} ${plural(c, ['слово', 'слова', 'слов'])}`;
+  let msg;
+  if (n.add && n.del) msg = t('words_mixed', 'Словарь обновили: {added} добавили, {removed} убрали.', { added: say(n.add), removed: say(n.del) });
+  else if (n.add) msg = t('words_added', 'Словарь пополнился: {words}.', { words: say(n.add) });
+  else msg = t('words_removed', 'Из словаря убрали {words}.', { words: say(n.del) });
+  toast(msg, '', 5000);
+}
+
+// \u00A0 перед последним словом: иначе оно норовит уехать на отдельную строку
+function offInfoText() {
+  const i = OFF && OFF.info();
+  if (!i) return '';
+  const n = i.count && i.count.words ? Number(i.count.words) : 0;
+  const words = n ? `${n} ${plural(n, ['слово', 'слова', 'слов'])}` : '';
+  const vars = { n, words, date: i.ts ? fmtDate(i.ts) : '' };
+  if (i.seeded) return t('off_seed', 'Сейчас игра на встроенном словаре — {words}. Как появится связь, обновит его с\u00A0сайта.', vars);
+  if (!i.ts) return t('off_cached', 'Словарь и настройки скачаны с\u00A0сайта: {words}.', vars);
+  return t('off_fresh', 'Словарь и настройки с сайта, обновлены {date}. Слов в\u00A0словаре: {n}.', vars);
+}
+
+function offStatsHtml() {
+  const st = OFF.stats(), rate = st.games ? Math.round(st.wins / st.games * 100) : 0;
+  return `<div class="stats">
+    <div class="stat"><b>${st.games}</b><span>игр</span></div><div class="stat"><b>${st.wins}</b><span>побед</span></div>
+    <div class="stat"><b>${rate}%</b><span>побед</span></div><div class="stat"><b>${st.streak}</b><span>серия</span></div>
+    <div class="stat"><b>${st.max_streak}</b><span>макс. серия</span></div><div class="stat"><b>${fmt(st.best_time)}</b><span>рекорд</span></div>
+  </div>`;
+}
+
+function showOfflineProfile() {
+  const st = OFF.stats(), dist = st.dist || {}, max = Math.max(1, ...Object.values(dist).map(Number));
+  let bars = '';
+  for (let i = 1; i <= rows; i++) {
+    const n = Number(dist[i] || 0);
+    bars += `<div class="dr"><span style="width:12px">${i}</span><div class="bar ${n ? 'hit' : ''}" data-w="${Math.max(8, n / max * 100)}">${n}</div></div>`;
+  }
+  $('#u-name').textContent = 'Автономная статистика';
+  $('#u-sub').textContent = 'Игры без интернета. В рейтинг сайта они не идут.';
+  $('#u-body').innerHTML = offStatsHtml() +
+    `<h2 style="font-size:16px;margin:14px 0 8px">Победы по попыткам</h2><div class="dist">${bars}</div>
+     <div class="divider"></div>
+     <p class="hint" style="margin:0 0 12px">${esc(offInfoText())}</p>
+     <button class="btn primary block" id="u-online">${icon('refresh')} Проверить связь</button>`;
+  $('#u-online').onclick = () => tryOnline(true);
+  openM('m-user');
+  requestAnimationFrame(() => $$('.dist .bar').forEach(b => { b.style.width = b.dataset.w + '%'; }));
+}
+
+const openOff = () => {
+  const i = $('#off-info'); if (i) i.textContent = offInfoText();
+  const ul = $('#m-off .rules');
+  const rules = t('off_rules', null);
+  if (ul && Array.isArray(rules) && rules.length) ul.innerHTML = rules.map(x => `<li>${esc(x)}</li>`).join('');
+  openM('m-off');
+};
+
+function updateOffbar() {
+  document.body.classList.toggle('offline', offline);
+  const bar = $('#offbar'); if (!bar) return;
+  bar.hidden = !offline;
+  if (!offline) return;
+  bar.classList.toggle('back', backOnline);
+  $('#offbar-t').textContent = backOnline ? 'Связь появилась — рейтинг со следующей игры' : 'Офлайн · без рейтинга';
+}
+
+/** Переход в автономный режим. Без бандла не выйдет — тогда false. */
+async function goOffline(opts) {
+  if (!OFF || !await OFF.ready()) return false;
+  offline = true; backOnline = false;
+  updateOffbar();
+  if (!(opts && opts.silent) && store.get('five_off_seen', '') !== '1') { store.set('five_off_seen', '1'); openOff(); }
+  return true;
+}
+
+/** Связь пропала посреди серверной партии: ждать или играть офлайн. */
+function netLost() {
+  if (netLostOpen || offline) return;
+  netLostOpen = true;
+  const can = !!(OFF && OFF.available());
+  $('#net-off').hidden = !can;
+  $('#net-sub').textContent = can
+    ? 'Партию на сервере без связи не продолжить. Можно подождать или начать автономную партию — она не попадёт в рейтинг.'
+    : 'Проверьте подключение и повторите.';
+  openM('m-net');
+}
+
+/** Проверка связи в автономном режиме. */
+async function tryOnline(manual) {
+  if (manual) toast('Проверяю связь…', '', 1200);
+  let ok = false;
+  try { const r = await fetch('api.php?a=state', { cache: 'no-store' }); ok = r.ok; } catch (e) { ok = false; }
+  if (!ok) { if (manual) toast('Связи всё ещё нет', 'err'); return false; }
+  if (!begun || over) { location.reload(); return true; }   // партия не идёт — возвращаемся на сервер сразу
+  backOnline = true; updateOffbar();
+  if (manual) toast('Связь появилась. Рейтинг — со следующей игры', 'ok');
+  return true;
+}
+
+/* ---------- Характер игры ----------
+   Игра изредка комментирует происходящее. Правила, без которых затея
+   превращается в навязчивость (см. docs/plan/character.md):
+     — не чаще одного раза за партию;
+     — одна и та же реплика не идёт дважды подряд;
+     — ирония над ситуацией, никогда над игроком;
+     — всё выключается одним флажком в админке и не оставляет следов;
+     — в «спокойном» режиме только текст, без дрожи.
+   Счётчики живут в памяти вкладки: это не те данные, ради которых стоит
+   писать на диск.
+*/
+const QUIPS = {                                   // запас на случай старого сервера
+  ladder: ['Методично. Уважаю.'], cold: ['Холодно. Совсем холодно.'],
+  erase: ['Да ну хватит уже'], nodict: ['Словарь такого не знает.\nИ я, если честно, тоже.'],
+  idle: ['Буквы не кончатся, если ими пользоваться.'], first: ['Так нечестно. Но засчитано.'],
+  easyloss: ['Упс-с-с…'], tilt: ['Может, кофе? Слова подождут.'],
+};
+let quipDone = false, quipLast = '', guessWords = [], noDict = 0, erased = {}, idleAt = null, lossRun = 0;
+
+const quipsOn = () => !!(S.cfg && S.cfg.quips);
+
+function quipPick(key) {
+  const src = (S.cfg && S.cfg.texts && S.cfg.texts.quips) || QUIPS;
+  const list = (src[key] || []).filter(Boolean);
+  if (!list.length) return '';
+  const pool = list.filter(x => x !== quipLast);
+  const use = pool.length ? pool : list;
+  return use[Math.floor(Math.random() * use.length)];
+}
+
+/**
+ * Облачко с репликой над полем. Свой слой, а не общая стопка уведомлений:
+ * реплика не должна ложиться вторым этажом на сообщение об ошибке. Встаёт у
+ * случайного края на случайной высоте и слегка набок — чтобы выглядело
+ * живым, а не выровненным; уходит, лопаясь облачком дыма.
+ */
+function say(text) {
+  const box = $('#says');
+  if (!box) return;
+  box.innerHTML = '';                               // одна реплика за раз
+  const el = document.createElement('div');
+  el.className = 'say ' + (Math.random() < .5 ? 'l' : 'r');
+  el.style.top = (16 + Math.random() * 46) + '%';   // середина поля, не задевая края
+  el.style.setProperty('--rot', (Math.random() * 4 - 2).toFixed(1) + 'deg');
+  el.textContent = text;
+  if (!calm && !reduced) {
+    for (let i = 0; i < 6; i++) {                   // клубы дыма на прощание
+      const a = (i / 6) * Math.PI * 2 + Math.random();
+      const p = document.createElement('i');
+      p.style.setProperty('--i', i);
+      p.style.setProperty('--dx', Math.round(Math.cos(a) * 46) + 'px');
+      p.style.setProperty('--dy', Math.round(Math.sin(a) * 38) + 'px');
+      el.appendChild(p);
+    }
+  }
+  box.appendChild(el);
+  setTimeout(() => {
+    el.classList.add('pop');
+    setTimeout(() => el.remove(), 700);
+  }, 3400);
+}
+
+/** Сказать реплику поверх поля. Возвращает false, если сказать нечего. */
+function quip(key, shake) {
+  if (quipDone || over || !quipsOn()) return false;
+  const text = quipPick(key);
+  if (!text) return false;
+  quipDone = true; quipLast = text;
+  if (shake && !calm) shakeRow();
+  say(text);
+  return true;
+}
+
+/** Реплика в окне итога: поверх важного её не показываем, только внутри. */
+function quipForResult(g) {
+  if (!quipsOn() || quipDone) return '';
+  let key = '';
+  if (g.win && g.attempts === 1) key = 'first';
+  else if (!g.win && lossRun >= 3) key = 'tilt';
+  else if (!g.win && g.easy) key = 'easyloss';
+  if (!key) return '';
+  const text = quipPick(key);
+  if (!text) return '';
+  quipDone = true; quipLast = text;
+  return text;
+}
+
+function quipReset() {
+  quipDone = false; guessWords = []; noDict = 0; erased = {};
+  quipIdleStop();
+}
+
+/** Долгая пауза без единой буквы. Таймер живёт только пока партия идёт. */
+function quipIdleStop() { if (idleAt) { clearTimeout(idleAt); idleAt = null; } }
+function quipIdleStart() {
+  quipIdleStop();
+  if (!quipsOn() || over || !begun) return;
+  idleAt = setTimeout(() => { if (!document.hidden && !anyModal()) quip('idle'); }, 90000);
+}
+
+/** Слова отличаются ровно одной буквой — игрок перебирает по одной. */
+const oneApart = (a, b) => {
+  if (!a || !b || a.length !== b.length) return false;
+  let d = 0;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i] && ++d > 1) return false;
+  return d === 1;
+};
+
+/** Разбор только что принятого хода. */
+function quipAfterGuess(word, colors) {
+  guessWords.push(word);
+  noDict = 0;
+  const h = history;
+  if (h.length >= 3 && h.slice(-3).every(c => /^a+$/.test(c))) { quip('cold'); return; }
+  const g = guessWords;
+  if (g.length >= 3 && oneApart(g[g.length - 1], g[g.length - 2]) && oneApart(g[g.length - 2], g[g.length - 3])) quip('ladder');
+}
+
+/* ---------- Экраны и адреса ----------
+   Маленький роутер на hashchange: ни библиотек, ни своей истории. Экраны —
+   те же окна (.modal), что были; роутер лишь открывает нужное и держит адрес
+   в синхроне. Это нужно для прямых ссылок на сайте, для кнопки «назад» в
+   приложении и для шорткатов с виджетами в следующих выпусках.
+*/
+const ROUTES = ['/', '/game', '/daily', '/lb', '/me', '/help'];
+const ROUTE_M = { '/lb': 'm-lb', '/me': 'm-user', '/help': 'm-help' };
+let navDepth = 0, routeBusy = false, lastScreen = '/';
+
+const curRoute = () => {
+  let h = (location.hash || '').replace(/^#/, '');
+  try { h = decodeURIComponent(h); } catch (e) {}
+  return ROUTES.indexOf(h) > -1 ? h : '/';     // мусор в адресе — на главную
+};
+
+/** Уйти по адресу. replace — не оставлять след в истории. */
+function goTo(r, replace) {
+  const h = '#' + r;
+  if (location.hash === h) { applyRoute(); return; }
+  if (replace) { location.replace(location.pathname + location.search + h); applyRoute(); }
+  else { navDepth++; location.hash = h; }
+}
+
+/** Закрыть окно-экран так, чтобы адрес вернулся к тому, что было под ним. */
+function leaveModal(id) {
+  const r = curRoute();
+  if (ROUTE_M[r] !== id) { closeM(id); return; }
+  // history здесь — именно window.history: одноимённая переменная выше хранит
+  // цвета сыгранных строк и перекрывает глобальную.
+  if (navDepth > 0) { navDepth--; window.history.back(); }  // роутер отработает по hashchange
+  else goTo(lastScreen, true);                         // пришли по прямой ссылке
+}
+
+function applyRoute() {
+  if (routeBusy) return;
+  if (curRoute() === '/daily' && S.cfg && (offline || S.cfg.mode !== 'daily')) { goTo('/', true); return; }
+  routeBusy = true;
+  const r = curRoute();
+  Object.keys(ROUTE_M).forEach(k => { if (k !== r) closeM(ROUTE_M[k]); });
+  const home = r === '/';
+  if (home || r === '/game' || r === '/daily') lastScreen = home ? '/' : '/game';
+  document.body.classList.toggle('home', home);
+  $('#home').hidden = !home;
+  if (home) { closeM('m-auth'); renderHome(); }
+  else if (!S.user && !S.guest && !offline) { updateLock(); openM('m-auth'); }
+  else closeM('m-auth');
+  if (r === '/lb') showLeaderboard();
+  else if (r === '/me') showProfile();
+  else if (r === '/help') { fillHelp(); openM('m-help'); }
+  routeBusy = false;
+  if (!home) requestAnimationFrame(fitBoard);
+}
+
+/**
+ * Партия в процессе — та, которую игрок начал (нажал первую букву) и не
+ * доиграл. Именно её запуск открывает сразу, минуя витрину.
+ */
+function gameLive() {
+  const g = S.game;
+  return !!(g && !g.over && (g.started || g.guesses.length));
+}
+
+/**
+ * Витрина. Она не описывает игру, а зовёт в неё: сверху вопрос, под кнопкой —
+ * строка с фактом, который отвечает «а что будет, если нажать». Всё, что здесь
+ * написано, приходит с сервера — см. five_texts().
+ */
+function renderHome() {
+  const live = gameLive();
+  $('#home-kicker').textContent = t('home_kicker', 'Пять букв. Одно слово.');
+  $('#home-title').textContent = live
+    ? t('home_title_live', 'Допишем начатое слово?')
+    : t('home_title', 'Сплетём ещё одно слово?');
+  $('#home-sub').textContent = live
+    ? t('home_sub_live', 'Партия ждёт на поле — строки и время на месте.')
+    : t('home_sub', 'Наберите слово. Цвета подскажут, какие буквы на своём месте.');
+  $('#home-cap').textContent = t('home_cap', 'Подсказки первой попытки → верное слово');
+  $('#h-play-t').textContent = live ? t('home_cont', 'Продолжить партию') : t('home_play', 'Играть');
+  $('#h-daily').hidden = S.cfg.mode !== 'daily';
+  $('#home-stat').textContent = homeStat(live);
+  // Знать полезно обе версии: по ним видно, чего ждать от игры, а чего — от сайта.
+  $('#home-ver').textContent = APP
+    ? (APPV.channel === 'beta' ? `Оболочка ${APPV.shellVersion || APPV.version || '—'} · Компоненты ${APPV.version || '—'} · Сайт ${S.cfg.site_version || '—'}` : `Приложение ${APPV.shellVersion || APPV.version || '—'} · Сайт ${S.cfg.site_version || '—'}`)
+    : `Версия ${S.cfg.site_version || '—'}`;
+  $('#h-inst').hidden = !canOffer();
+}
+
+/** Короткий факт под кнопкой: сначала то, что про текущего игрока. */
+function homeStat(live) {
+  if (live) return t('home_stat_live', 'Партия не доиграна');
+  const u = offline ? (OFF ? OFF.stats() : null) : S.user;
+  if (u && u.streak > 1) return five_plural_js(u.streak, 'победа подряд', 'победы подряд', 'побед подряд');
+  if (u && u.games) return `Сыграно партий: ${u.games} · побед: ${Math.round(u.wins / u.games * 100)}%`;
+  const left = S.limit > 0 ? Math.max(0, S.limit - S.used) : 0;
+  if (left > 0) return `${S.cfg.attempts} попыток · сегодня осталось игр: ${left}`;
+  return `${S.cfg.attempts} попыток · каждая буква — подсказка`;
+}
+
+/** Склонение числительных: 1 победа, 2 победы, 5 побед. */
+function five_plural_js(n, one, few, many) {
+  const a = Math.abs(n) % 100, b = a % 10;
+  const w = a > 10 && a < 20 ? many : b === 1 ? one : b >= 2 && b <= 4 ? few : many;
+  return n + ' ' + w;
+}
+
+/**
+ * Скрытый вход в админку: семь нажатий по строке версии на витрине. Приём
+ * знаком по «режиму разработчика» в Android — случайно не открыть и объяснять
+ * не нужно. Отсчёт сбрасывается, если между нажатиями прошло больше трёх
+ * секунд. Скрытность здесь не вместо пароля: за дверью обычная форма входа
+ * админки со своей защитой. Прячем только саму дверь.
+ */
+function watchSecretDoor() {
+  const el = $('#home-ver');
+  if (!el) return;
+  const NEED = 7;
+  let hits = 0, last = 0;
+  el.addEventListener('click', () => {
+    const now = Date.now();
+    hits = now - last > 3000 ? 1 : hits + 1;
+    last = now;
+    if (hits < NEED) return;
+    hits = 0;
+    location.href = 'admin/';     // та же вкладка: в приложении это его же окно
+  });
+}
+
+/** Кнопка «назад» в Android спрашивает страницу: см. MainActivity.onKeyDown. */
+window.FIVE_BACK = function () {
+  const m = $('.modal.open');
+  if (m && !m.dataset.lock && !ROUTE_M[curRoute()]) { closeM(m.id); return 'ok'; }
+  if (curRoute() !== '/') return 'back';
+  return 'exit';
+};
+
+/* ---------- Старт / восстановление ---------- */
+function startFromState() {
+  rows = S.cfg.attempts;
+  applyCfg(); updateOffbar(); updateInstallUi();
+  buildBoard(); resetBoardState(); paintRows();
+  $('.brand p').textContent = S.cfg.mode === 'daily' ? 'Слово дня · ' + new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' }) : S.cfg.tagline;
+  $('#timer').style.display = S.cfg.timer ? '' : 'none';
+  $('#b-theme').hidden = !S.cfg.switch;
+  $('#a-guest').style.display = S.cfg.guests ? '' : 'none';
+  $('#a-guest-hint').textContent = S.cfg.guests ? 'Профиль сохраняет статистику, серию побед и место в рейтинге.' : 'Для игры нужен профиль.';
+  $('#a-reg-hint').textContent = S.cfg.register ? 'Нового имени ещё нет? Профиль создастся автоматически с этим паролем.' : 'Регистрация закрыта — входите под существующим именем.';
+  const nm = $('#a-name'); nm.minLength = S.cfg.min_name; nm.maxLength = S.cfg.max_name;
+  updateStreak();
+  if (!S.user && !S.guest) {
+    publishWidget();
+    // На витрине турникета нет: новичок сначала видит игру, а вход просят,
+    // когда он нажал «Играть».
+    updateLock();
+    if (curRoute() === '/') { $('#pb-result').style.display = 'none'; applyRoute(); } else openM('m-auth');
+    return;
+  }
+  closeM('m-auth');
+  const g = S.game;
+  if (!g) { newGame(true); return; }
+  g.guesses.forEach((r, i) => {
+    const letters = [...r.w], colors = [...r.c];
+    history.push(r.c);
+    reveal(i, letters, colors, true);
+  });
+  rowIdx = g.guesses.length; begun = g.started;
+  if (g.over) {
+    over = true; document.body.classList.add('over');
+    if (g.guesses.length === rows || g.win) rowIdx = Math.min(rowIdx - 1, rows - 1);
+    stopTimer(g.time);
+    last = { win: g.win, word: g.word, time: g.time, attempts: g.guesses.length, record: false };
+  } else if (g.started) startTimer(g.elapsed);
+  $('#pb-result').style.display = last ? '' : 'none';
+  paintRows(); updateLock(); renderSide();
+  publishWidget();
+}
+
+async function newGame(silent) {
+  const res = await api('new', {});
+  if (!res.ok) {
+    if (res.net) { netLost(); return; }
+    if (res.need_auth) { await loadState(); startFromState(); return; }
+    if (res.daily_done) S.daily_done = true;
+    if (res.limit) S.used = Math.max(S.used, S.limit);
+    over = true; last = null;
+    document.body.classList.add('over'); updateLock();
+    toast(res.error || 'Не удалось начать', 'err', 3500);
+    $('#pb-result').style.display = 'none';
+    publishWidget();
+    return;
+  }
+  merge(res);
+  $('#pb-result').style.display = '';
+  closeM('m-res');
+  rows = S.cfg.attempts;
+  if (tiles.length !== rows) buildBoard();
+  resetBoardState(); paintRows(); updateLock(); renderSide();
+  publishWidget();
+  if (!silent) sfx.ok();
+  const g = S.game;
+  if (g && g.guesses.length) startFromState();
+}
+
+function updateStreak() {
+  const b = $('#streak');
+  const n = offline ? (OFF ? OFF.stats().streak : 0) : (S.user ? S.user.streak : 0);
+  if (n > 0) { b.hidden = false; $('#streak-n').textContent = n; } else b.hidden = true;
+}
+
+/* ---------- Окна ---------- */
+function lbHtml(r) {
+  return r.rows.map((p, i) => {
+    const val = { wins: [p.wins, 'побед'], time: [fmt(p.best_time), 'лучшее'], winrate: [p.rate + '%', 'побед'], streak: [p.streak, 'серия'] }[r.sort] || [p.wins, 'побед'];
+    // Снимок рейтинга из кэша показывает не «сейчас», а «тогда» — огонёк там
+    // врал бы, поэтому в нём его нет.
+    const on = p.on && !r.cached ? '<i class="on" title="Сейчас в игре"></i>' : '';
+    return `<div class="lbr ${p.me ? 'me' : ''}" style="--i:${i}"><div class="pos">${i + 1}</div>
+      <div class="nm">${on}${esc(p.name)}<small>${p.games} игр · ${p.rate}% · ${fmt(p.best_time)}</small></div>
+      <div class="val">${esc(val[0])}<small>${val[1]}</small></div></div>`;
+  }).join('');
+}
+
+const wide = () => matchMedia('(min-width: 1000px) and (min-height: 600px)').matches;
+function renderSide() {
+  if (!wide() || !S.cfg) return;
+  api('leaderboard').then(r => {
+    if (!r.ok) { $('#side-lb').innerHTML = `<div class="empty">${esc(r.error || 'Не удалось загрузить')}</div>`; return; }
+    r.rows = r.rows.slice(0, 6);
+    $('#side-lb').innerHTML = (r.rows.length ? lbHtml(r) : '<div class="empty">Пока никто не сыграл — станьте первым!</div>')
+      + (r.cached ? `<div class="cached-note">Снимок от ${fmtDate(r.cached)}</div>` : '');
+  });
+  const me = $('#side-me'), u = S.user;
+  if (offline) {
+    $('#side-title').textContent = 'Автономный режим';
+    me.innerHTML = offStatsHtml() + `<p class="hint" style="margin:10px 0 0">${esc(offInfoText())}</p>
+      <button class="btn sm block" id="side-online" style="margin-top:12px">${icon('refresh')} Проверить связь</button>`;
+    $('#side-online').onclick = () => tryOnline(true);
+    fillHelp();
+    return;
+  }
+  if (u) {
+    $('#side-title').textContent = u.name;
+    const rate = u.games ? Math.round(u.wins / u.games * 100) : 0;
+    me.innerHTML = `<div class="stats"><div class="stat"><b>${u.games}</b><span>игр</span></div><div class="stat"><b>${u.wins}</b><span>побед</span></div><div class="stat"><b>${rate}%</b><span>побед</span></div>
+      <div class="stat"><b>${u.streak}</b><span>серия</span></div><div class="stat"><b>${fmt(u.best_time)}</b><span>рекорд</span></div><div class="stat"><b>${S.limit > 0 ? S.used + '/' + S.limit : S.used}</b><span>сегодня</span></div></div>
+      <button class="btn sm block" id="side-out" style="margin-top:14px">${icon('out')} Выйти</button>`;
+    $('#side-out').onclick = async () => { const r = await api('logout', {}); if (r.ok) merge(r); startFromState(); goTo('/', true); };
+  } else {
+    $('#side-title').textContent = S.guest ? 'Вы — гость' : 'Профиль';
+    me.innerHTML = `<p class="sub" style="margin:0 0 12px;color:var(--muted);font-size:14px">Войдите, чтобы сохранять статистику и попасть в рейтинг.</p><button class="btn primary sm block" id="side-in">Войти или создать профиль</button>`;
+    $('#side-in').onclick = async () => { await api('logout', {}); await loadState(); startFromState(); goTo('/game', true); };
+  }
+  fillHelp();
+}
+
+function showLeaderboard() {
+  openM('m-lb');
+  const list = $('#lb-list'); list.innerHTML = '<div class="empty">Загрузка…</div>';
+  api('leaderboard').then(r => {
+    if (!r.ok) {
+      list.innerHTML = `<div class="empty">${esc(r.error || 'Не удалось загрузить')}</div>`;
+      $('#lb-sub').textContent = offline ? 'Нет связи с сервером' : 'Лучшие игроки';
+      return;
+    }
+    const sortName = { wins: 'по числу побед', time: 'по лучшему времени', winrate: 'по проценту побед', streak: 'по серии побед' }[r.sort] || '';
+    $('#lb-sub').textContent = 'Лучшие игроки ' + sortName + (r.cached ? ' · снимок от ' + fmtDate(r.cached) : '');
+    // Пояснение к огоньку — отдельной строкой и с таким же живым огоньком,
+    // как в таблице. Если сейчас никто не играет, строки нет вовсе: пустая
+    // легенда объясняет то, чего на экране не видно.
+    $('#lb-live').hidden = !!r.cached || !r.rows.some(x => x.on);
+    if (!r.rows.length) list.innerHTML = '<div class="empty">Пока никто не сыграл. Будьте первым! 🏆</div>';
+    else list.innerHTML = lbHtml(r);
+    lbGuestNote();
+  });
+}
+
+/** Гостю под таблицей объясняем, почему его там нет, и зовём завести профиль. */
+function lbGuestNote() {
+  const box = $('#lb-guest');
+  if (!box) return;
+  if (S.user || offline) { box.hidden = true; box.innerHTML = ''; return; }
+  box.hidden = false;
+  box.innerHTML = `<p>${esc(t('lb_guest', 'Вы играете гостем — результаты в таблицу не идут. Профиль заводится за десять секунд, почта не нужна.'))}</p>
+    <button class="btn primary sm block" id="lb-join">Войти или создать профиль</button>`;
+  $('#lb-join').onclick = async () => { closeM('m-lb'); await api('logout', {}); await loadState(); startFromState(); goTo('/game', true); };
+}
+
+function showProfile() {
+  const body = $('#u-body');
+  if (offline) { showOfflineProfile(); return; }
+  if (!S.user) {
+    $('#u-name').textContent = S.guest ? 'Вы играете как гость' : 'Профиль';
+    $('#u-sub').textContent = 'Войдите, чтобы сохранять статистику и попасть в рейтинг.';
+    body.innerHTML = '<button class="btn primary block" id="u-login">Войти или создать профиль</button>';
+    $('#u-login').onclick = async () => { await api('logout', {}); await loadState(); closeM('m-user'); startFromState(); goTo('/game', true); };
+    openM('m-user'); return;
+  }
+  const u = S.user, rate = u.games ? Math.round(u.wins / u.games * 100) : 0;
+  $('#u-name').textContent = u.name; $('#u-sub').textContent = 'Ваша статистика';
+  const dist = u.dist || {}, max = Math.max(1, ...Object.values(dist).map(Number));
+  let bars = '';
+  for (let i = 1; i <= rows; i++) {
+    const n = Number(dist[i] || 0);
+    bars += `<div class="dr"><span style="width:12px">${i}</span><div class="bar ${n ? 'hit' : ''}" data-w="${Math.max(8, n / max * 100)}">${n}</div></div>`;
+  }
+  body.innerHTML = `<div class="stats">
+      <div class="stat"><b>${u.games}</b><span>игр</span></div><div class="stat"><b>${u.wins}</b><span>побед</span></div>
+      <div class="stat"><b>${rate}%</b><span>побед</span></div><div class="stat"><b>${u.streak}</b><span>серия</span></div>
+      <div class="stat"><b>${u.max_streak}</b><span>макс. серия</span></div><div class="stat"><b>${fmt(u.best_time)}</b><span>рекорд</span></div>
+      <div class="stat"><b>${fmt(u.avg_time)}</b><span>среднее</span></div><div class="stat"><b>${S.limit > 0 ? S.used + '/' + S.limit : S.used}</b><span>сегодня</span></div>
+    </div>
+    <h2 style="font-size:16px;margin:14px 0 8px">Победы по попыткам</h2><div class="dist">${bars}</div>
+    <div class="divider"></div>
+    <button class="btn block" id="u-pw">${icon('user')} Сменить пароль</button>
+    <form class="pw" id="u-pwform" hidden autocomplete="off">
+      <div class="field"><input id="pw-old" type="password" placeholder="Текущий пароль" autocomplete="current-password"></div>
+      <div class="field"><input id="pw-new" type="password" placeholder="Новый пароль" autocomplete="new-password"></div>
+      <div class="field"><input id="pw-new2" type="password" placeholder="Новый пароль ещё раз" autocomplete="new-password"></div>
+      <div class="msg" id="pw-msg"></div>
+      <button class="btn primary block" type="submit" id="pw-go">Сохранить пароль</button>
+    </form>
+    <button class="btn block" id="u-out">${icon('out')} Выйти</button>`;
+  bindPasswd();
+  $('#u-out').onclick = async () => { const r = await api('logout', {}); if (r.ok) merge(r); closeM('m-user'); startFromState(); goTo('/', true); };
+  openM('m-user');
+  requestAnimationFrame(() => $$('.dist .bar').forEach(b => { b.style.width = b.dataset.w + '%'; }));
+}
+
+/**
+ * Смена пароля в профиле. Форма спрятана до нажатия: в окне со статистикой
+ * три поля для пароля выглядели бы тревожно, а нужны они редко.
+ */
+function bindPasswd() {
+  const form = $('#u-pwform'), btn = $('#u-pw'), msg = $('#pw-msg');
+  if (!form || !btn) return;
+  btn.onclick = () => {
+    form.hidden = !form.hidden;
+    btn.hidden = !form.hidden ? true : false;
+    if (!form.hidden) $('#pw-old').focus();
+  };
+  form.onsubmit = async e => {
+    e.preventDefault();
+    const old = $('#pw-old').value, a = $('#pw-new').value, b = $('#pw-new2').value;
+    msg.textContent = '';
+    if (a.length < 4) { msg.textContent = 'Новый пароль — минимум 4 символа'; return; }
+    if (a !== b) { msg.textContent = 'Новые пароли не совпадают'; return; }
+    const go = $('#pw-go');
+    go.disabled = true;
+    const r = await api('passwd', { old, new: a });
+    go.disabled = false;
+    if (!r.ok) { msg.textContent = r.error || 'Не удалось сменить пароль'; sfx.err(); return; }
+    merge(r);
+    toast(r.message || 'Пароль изменён', 'ok');
+    sfx.ok();
+    form.hidden = true; btn.hidden = false;
+    $('#pw-old').value = $('#pw-new').value = $('#pw-new2').value = '';
+  };
+}
+
+function buildStatic() {
+  $('#hero').innerHTML = [['С', 'c'], ['Л', 'a'], ['О', 'p'], ['В', 'a'], ['О', 'c']].map((x, i) => `<span class="${x[1]}" style="--i:${i}">${x[0]}</span>`).join('');
+  $('#demo').innerHTML = [['К', 'c'], ['Н', 'a'], ['И', 'p'], ['Г', 'a'], ['А', 'a']].map(x => `<div class="tile" data-s="${x[1]}">${x[0]}</div>`).join('');
+  $('#themes').innerHTML = THEMES.map(t => `<button class="theme-card" data-theme="${t[0]}"><div class="mini"><i></i><i class="a"></i><i class="p"></i><i class="c"></i><i class="c"></i></div><b>${t[1]}</b></button>`).join('');
+  $$('.theme-card').forEach(c => c.onclick = () => { setTheme(c.dataset.theme); sfx.ok(); });
+  const bg = $('#bg');
+  if (!calm) {
+    const letters = 'БУКВЫСЛОВОИГРАМОРЕЗВЕЗДАЖИЗНЬ';
+    for (let i = 0; i < 14; i++) {
+      const s = document.createElement('span'); s.className = 'fl'; s.textContent = letters[Math.floor(Math.random() * letters.length)];
+      s.style.cssText = `--x:${Math.random() * 96}%;--s:${40 + Math.random() * 70}px;--d:${26 + Math.random() * 30}s;--dl:${-Math.random() * 40}s`;
+      bg.appendChild(s);
+    }
+  }
+}
+
+function fillHelp() {
+  const c = S.cfg;
+  const lg = `
+    <div><span class="dot" style="background:var(--c-bg)"></span> Буква стоит на своём месте</div>
+    <div><span class="dot" style="background:var(--p-bg)"></span> Буква есть в слове, но в другом месте</div>
+    <div><span class="dot" style="background:var(--a-bg)"></span> Такой буквы в слове нет</div>
+    <ul><li>У вас ${c.attempts} попыток.</li>${c.timer ? '<li>Время идёт с первой введённой буквы.</li>' : ''}
+    <li>Буква «Ё» считается как «Е».</li>
+    ${c.mode === 'daily' ? '<li>Слово дня одно для всех и меняется каждый день.</li>' : ''}
+    ${c.limit > 0 ? `<li>Игроки с профилем могут сыграть ${c.limit} раз(а) в сутки.</li>` : ''}</ul>
+    <p class="hint" style="text-align:left;margin-top:12px">${APP ? (APPV.channel === 'beta' ? 'Оболочка ' + esc(APPV.shellVersion || APPV.version || '') + ' · Компоненты ' + esc(APPV.version || '') : 'Приложение ' + esc(APPV.shellVersion || APPV.version || '')) + ' · ' : ''}Сайт ${esc(c.site_version || '')}</p>`;
+  $('#legend').innerHTML = lg; $('#side-legend').innerHTML = lg;
+}
+
+/* ---------- Конфетти ---------- */
+function confetti() {
+  const cv = $('#confetti'), ctx = cv.getContext('2d');
+  const dpr = Math.min(2, devicePixelRatio || 1);
+  cv.width = innerWidth * dpr; cv.height = innerHeight * dpr; ctx.scale(dpr, dpr);
+  const cs = getComputedStyle(document.documentElement);
+  const cols = ['--c-bg', '--accent', '--accent2', '--p-bg'].map(v => cs.getPropertyValue(v).trim()).concat(['#ff6fb5', '#ffd34e']);
+  const n = calm ? 70 : 170;
+  const ps = Array.from({ length: n }, () => ({
+    x: innerWidth / 2 + (Math.random() - .5) * 120, y: innerHeight * .55,
+    vx: (Math.random() - .5) * 15, vy: -(8 + Math.random() * 13), w: 6 + Math.random() * 7, h: 4 + Math.random() * 6,
+    r: Math.random() * 6, vr: (Math.random() - .5) * .4, c: cols[Math.floor(Math.random() * cols.length)],
+  }));
+  const t0 = performance.now();
+  (function frame(t) {
+    ctx.clearRect(0, 0, innerWidth, innerHeight);
+    ps.forEach(p => {
+      p.vy += .34; p.vx *= .992; p.x += p.vx; p.y += p.vy; p.r += p.vr;
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r); ctx.fillStyle = p.c;
+      ctx.globalAlpha = Math.max(0, 1 - (t - t0) / 4200);
+      ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h); ctx.restore();
+    });
+    if (t - t0 < 4200) requestAnimationFrame(frame); else ctx.clearRect(0, 0, innerWidth, innerHeight);
+  })(t0);
+}
+
+/* ---------- Обработчики ---------- */
+function bind() {
+  $('#kb').addEventListener('click', e => {
+    const k = e.target.closest('.key'); if (!k) return;
+    const v = k.dataset.k;
+    k.blur();
+    if (v === 'ENTER') submit(); else if (v === 'BACK') delLetter(); else typeLetter(v);
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { const m = $$('.modal.open').filter(x => !x.dataset.lock).pop(); if (m) { m.classList.remove('open'); } return; }
+    if (e.ctrlKey || e.altKey || e.metaKey) return;
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || (e.target.tagName === 'BUTTON' && (e.key === 'Enter' || e.key === ' '))) return;
+    if (anyModal()) { if (e.key === 'Enter' && $('#m-res').classList.contains('open') && !$('#r-again').disabled) { e.preventDefault(); newGame(); } return; }
+    if (e.key === 'Enter') { e.preventDefault(); if (over) { if (!$('#pb-new').disabled) newGame(); } else submit(); return; }
+    if (e.key === 'Backspace') { e.preventDefault(); delLetter(); return; }
+    let l = e.key.length === 1 ? e.key.toUpperCase() : '';
+    if (!/^[А-ЯЁ]$/.test(l)) l = CODES[e.code] || '';
+    if (l === 'Ё') l = 'Е';
+    if (l) { e.preventDefault(); typeLetter(l); const k = $(`.key[data-k="${l}"]`); if (k) { k.classList.add('press'); setTimeout(() => k.classList.remove('press'), 110); } }
+  });
+  $$('.modal').forEach(m => {
+    $('.shade', m).addEventListener('click', () => { if (!m.dataset.lock) leaveModal(m.id); });
+    $$('[data-close]', m).forEach(b => b.addEventListener('click', () => leaveModal(m.id)));
+  });
+  $('#b-lb').onclick = () => goTo('/lb');
+  $('#b-user').onclick = () => goTo('/me');
+  $('#streak').onclick = () => goTo('/me');
+  $('#b-help').onclick = () => goTo('/help');
+  $('#b-home').onclick = () => goTo('/');
+  $('#a-close').onclick = () => goTo('/', true);
+  $('#h-play').onclick = () => goTo('/game');
+  $('#h-daily').onclick = () => goTo('/daily');
+  $('#h-lb').onclick = () => goTo('/lb');
+  $('#h-me').onclick = () => goTo('/me');
+  $('#h-help').onclick = () => goTo('/help');
+  $('#h-inst').onclick = openInstall;
+  addEventListener('hashchange', applyRoute);
+  $('#b-theme').onclick = () => { setTheme(document.documentElement.dataset.theme); openM('m-theme'); };
+  $('#b-sound').onclick = () => { soundOn = !soundOn; store.set('five_sound', soundOn ? '1' : '0'); setSoundIcon(); if (soundOn) sfx.ok(); };
+  $('#pb-new').onclick = () => newGame();
+  $('#pb-home').onclick = () => goTo('/');
+  $('#pb-result').onclick = showResult;
+  $('#r-again').onclick = () => newGame();
+  $('#r-lb').onclick = () => { closeM('m-res'); goTo('/lb'); };
+  $('#r-home').onclick = () => { closeM('m-res'); goTo('/', true); };
+  $('#r-report').onclick = openReport;
+  $('#rp-send').onclick = sendReport;
+  $('#rp-reasons').addEventListener('click', e => {
+    const b = e.target.closest('.reason'); if (!b) return;
+    reportReason = b.dataset.r; $('#rp-msg').textContent = '';
+    $$('#rp-reasons .reason').forEach(x => x.classList.toggle('on', x === b));
+  });
+  $('#r-share').onclick = async () => {
+    const txt = shareText();
+    try { if (navigator.share) { await navigator.share({ text: txt }); return; } } catch (e) { return; }
+    try { await navigator.clipboard.writeText(txt); toast('Результат скопирован', 'ok'); }
+    catch (e) { prompt('Скопируйте результат:', txt); }
+  };
+
+  // вход
+  $('#a-show-login').onclick = () => { $('#auth-main').style.display = 'none'; $('#auth-form').style.display = ''; $('#a-name').focus(); };
+  $('#a-back').onclick = () => { $('#auth-form').style.display = 'none'; $('#auth-main').style.display = ''; $('#a-msg').textContent = ''; };
+  $('#a-eye').onclick = () => { const p = $('#a-pass'); p.type = p.type === 'password' ? 'text' : 'password'; };
+  $('#a-guest').onclick = async () => {
+    const r = await api('guest', {});
+    if (!r.ok) { toast(r.error, 'err'); return; }
+    merge(r); startFromState(); goTo('/game', true);
+  };
+  $('#auth-form').onsubmit = async e => {
+    e.preventDefault();
+    const name = $('#a-name').value.trim(), pass = $('#a-pass').value, msg = $('#a-msg'), btn = $('#a-submit');
+    msg.textContent = '';
+    if (name.length < S.cfg.min_name || name.length > S.cfg.max_name) { msg.textContent = `Имя — от ${S.cfg.min_name} до ${S.cfg.max_name} символов`; return; }
+    if (pass.length < 4) { msg.textContent = 'Пароль — минимум 4 символа'; return; }
+    btn.disabled = true; btn.textContent = 'Загадываю слово…';
+    const r = await api('auth', { name, pass });
+    btn.disabled = false; btn.textContent = 'Начать игру';
+    if (!r.ok) { msg.textContent = r.error; sfx.err(); return; }
+    merge(r); $('#a-pass').value = ''; toast(r.message, 'ok'); sfx.ok(); startFromState(); goTo('/game', true);
+  };
+
+  // автономный режим
+  const ob = $('#offbar');
+  if (ob) ob.onclick = openOff;
+  const oretry = $('#off-retry');
+  if (oretry) oretry.onclick = () => { closeM('m-off'); tryOnline(true); };
+  const nretry = $('#net-retry');
+  if (nretry) nretry.onclick = () => location.reload();
+  const noff = $('#net-off');
+  if (noff) noff.onclick = async () => {
+    closeM('m-net'); netLostOpen = false;
+    if (!await goOffline()) { toast('Автономные данные пока не загружены', 'err'); return; }
+    await loadState(); startFromState();
+  };
+  // обновление приложения
+  const ug = $('#upd-go'); if (ug) ug.onclick = startUpdate;
+  const ul = $('#upd-later');
+  if (ul) ul.onclick = () => { store.set('five_upd_snooze', String(Date.now() + 864e5)); closeM('m-upd'); };
+
+  // приложение на телефон
+  const io = $('#inst-open'); if (io) io.onclick = openInstall;
+  const ifo = $('#inst-foot'); if (ifo) ifo.onclick = openInstall;
+  const ih = $('#inst-hide');
+  if (ih) ih.onclick = e => { e.stopPropagation(); hideInstall(30); updateInstallUi(); toast('Хорошо, напомним через месяц', 'ok'); };
+  const mx = $('#msgbar-x');
+  if (mx) mx.onclick = () => {
+    const n = S.cfg && S.cfg.notices && S.cfg.notices.bar;
+    if (n) store.set('five_bar_hide', n.id);
+    $('#msgbar').hidden = true;
+  };
+  addEventListener('beforeinstallprompt', e => { e.preventDefault(); pwaPrompt = e; updateInstallUi(); });
+  addEventListener('appinstalled', () => { hideInstall(3650); updateInstallUi(); });
+
+  addEventListener('online', () => { if (offline) tryOnline(false); });
+  document.addEventListener('visibilitychange', () => { if (offline && document.visibilityState === 'visible') tryOnline(false); });
+
+  let wasWide = wide();
+  addEventListener('resize', () => { if (tiles.length) paintRows(); if (wide() && !wasWide) renderSide(); wasWide = wide(); });
+}
+
+/* ---------- Жалоба на слово ---------- */
+const reported = new Set();
+let reportReason = '';
+function updateReportBtn() {
+  const b = $('#r-report'), done = !!(last && reported.has(last.word));
+  b.disabled = done;
+  b.innerHTML = icon('flag') + (done ? ' Жалоба отправлена' : ' Пожаловаться');
+}
+function openReport() {
+  if (!last) return;
+  reportReason = '';
+  $$('#rp-reasons .reason').forEach(b => b.classList.remove('on'));
+  $('#rp-text').value = ''; $('#rp-msg').textContent = '';
+  $('#rp-sub').textContent = 'Слово: ' + last.word + '. Что с ним не так?';
+  openM('m-report');
+}
+async function sendReport() {
+  const msg = $('#rp-msg'), btn = $('#rp-send');
+  msg.textContent = '';
+  if (!last) return;
+  if (!reportReason) { msg.textContent = 'Выберите причину жалобы'; sfx.err(); return; }
+  const word = last.word;
+  btn.disabled = true;
+  const r = await api('report', { reason: reportReason, comment: $('#rp-text').value.trim() });
+  btn.disabled = false;
+  if (r.ok || r.dup) {
+    reported.add(word); closeM('m-report'); updateReportBtn();
+    if (r.ok) { toast(r.message || 'Жалоба отправлена', 'ok'); sfx.ok(); } else toast(r.error, 'err');
+  } else {
+    msg.textContent = r.error || 'Не удалось отправить'; sfx.err();
+  }
+}
+
+/* ---------- Экран не гаснет, пока открыта игра ---------- */
+let wakeLock = null, wakeBusy = false;
+async function keepAwake() {
+  if (wakeLock || wakeBusy || !('wakeLock' in navigator) || document.visibilityState !== 'visible') return;
+  wakeBusy = true;
+  try {
+    wakeLock = await navigator.wakeLock.request('screen');
+    wakeLock.addEventListener('release', () => { wakeLock = null; });
+  } catch (e) { wakeLock = null; }
+  wakeBusy = false;
+}
+function initWakeLock() {
+  keepAwake();
+  // браузер снимает блокировку при сворачивании вкладки — возвращаем при возврате;
+  // а если запрос без жеста пользователя отклонили — повторяем при первом касании/нажатии
+  document.addEventListener('visibilitychange', keepAwake);
+  ['pointerdown', 'touchend', 'keydown', 'click'].forEach(ev => addEventListener(ev, keepAwake, { passive: true }));
+}
+
+/* ---------- Запуск ---------- */
+const bootEl = $('#boot'), bootBar = $('#boot-bar'), bootMsg = $('#boot-msg');
+const bootStep = (pct, text) => { if (bootBar) bootBar.style.width = pct + '%'; if (text && bootMsg) bootMsg.textContent = text; };
+function bootFail(err) {
+  bootEl.innerHTML = '<div class="bt-wrap"><div class="bt-fail">Не удалось запустить игру.<br><span style="color:var(--muted);font-size:14px">' + esc(err || '') + '</span><br><button class="btn primary" onclick="location.reload()">Повторить</button></div></div>';
+}
+window.BETA_CAN_APPLY = () => over || (!begun && !busy);
+(async function init() {
+  const t0 = performance.now();
+  bootStep(18, 'Тасую буквы…');
+  let r = await loadState();
+  if (!r.ok && r.outdated) {                                // сервер не обслуживает эту сборку
+    bootFail(r.error || 'Эта версия больше не поддерживается.');
+    return;
+  }
+  if (!r.ok && r.net && OFF && OFF.available()) {
+    bootStep(32, 'Нет связи — включаю автономный режим…');
+    if (await goOffline({ silent: true })) r = await loadState();
+  }
+  if (!r.ok) { bootFail(r.error); return; }
+  bootStep(55, 'Загадываю слово…');
+  calm = !S.cfg.anim || reduced;
+  document.body.classList.toggle('calm', calm);
+  soundOn = store.get('five_sound', S.cfg.sound ? '1' : '0') === '1';
+  const th = store.get('five_theme', '');
+  setTheme(S.cfg.switch && THEMES.some(t => t[0] === th) ? th : S.cfg.theme);
+  buildStatic(); buildKeyboard(); setSoundIcon(); bind();
+  startFromState();
+  try {
+    const cached = JSON.parse(store.get('five_lb_cache', 'null'));
+    if (cached && Array.isArray(cached.rows)) widgetLeaderboard({ ok: true, rows: cached.rows, sort: cached.sort, cached: cached.ts }, S.user && S.user.name);
+  } catch (_) {}
+  publishWidget();
+  refreshWidgetRanking();
+  // Прямую ссылку уважаем; без адреса незаконченная партия открывает поле
+  // сразу — вернувшемуся доигрывать витрина только мешает.
+  goTo(location.hash ? curRoute() : (gameLive() ? '/game' : '/'), true);
+  widgetReady = true;
+  if (widgetPending) { const request = widgetPending; widgetPending = null; window.FIVE_WIDGET_OPEN(...request); }
+  initWakeLock();
+  bootStep(80, 'Листаю словарь…');
+  try { if (document.fonts && document.fonts.ready) await Promise.race([document.fonts.ready, wait(1500)]); } catch (e) {}
+  // при первом запуске в сессии показываем заставку подольше, при перезагрузке — коротко
+  let seen = false;
+  try { seen = sessionStorage.getItem('five_boot') === '1'; sessionStorage.setItem('five_boot', '1'); } catch (e) {}
+  await wait(Math.max(0, (calm ? 500 : seen ? 700 : 1600) - (performance.now() - t0)));
+  bootStep(100, 'Поехали!');
+  await wait(calm ? 100 : 380);
+  bootEl.classList.add('done');
+  if (window.BetaUpdates) BetaUpdates.ready();
+  setTimeout(() => bootEl.remove(), 650);
+  try {
+    if (sessionStorage.getItem('five_visit') !== '1') {
+      sessionStorage.setItem('five_visit', '1');
+      store.set('five_visits', String(Number(store.get('five_visits', 0)) + 1));
+    }
+  } catch (e) {}
+  updateInstallUi();
+  // Пришли по QR-коду с компьютера — показываем установку сразу, без поисков.
+  if (!APP && /[?&]app\b/.test(location.search) && canOffer()) setTimeout(openInstall, 900);
+  if (APP) setTimeout(checkUpdate, 1200);                   // проверяем обновление, не мешая запуску
+  if (!offline && OFF) {
+    // Тихо освежаем автономные данные и, если словарь изменился, говорим об этом.
+    Promise.resolve(OFF.refresh()).then(() => setTimeout(showWordsNews, 1200));
+  } else {
+    setTimeout(showWordsNews, 1200);   // могло остаться с прошлого запуска
+  }
+  setTimeout(showNoticeMsg, 1500);
+  watchBoardSize();
+  watchNotices();
+  watchActiveTime();
+  watchSecretDoor();
+  if (offline && store.get('five_off_seen', '') !== '1') {  // первый офлайн-запуск — объясняем правила
+    store.set('five_off_seen', '1');
+    setTimeout(openOff, 700);
+  }
+  if ('serviceWorker' in navigator && !APP && (location.protocol === 'https:' || ['localhost', '127.0.0.1'].indexOf(location.hostname) > -1)) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+})();
+})();

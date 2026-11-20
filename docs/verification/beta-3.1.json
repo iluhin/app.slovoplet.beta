@@ -1,0 +1,48 @@
+{
+  "mode": "local-rehearsal",
+  "applicationId": "com.iluhin.fiveletters.beta",
+  "upgrades": [
+    {
+      "startingComponents": "3.0",
+      "shellVersion": "3.0",
+      "componentVersion": "3.1",
+      "downloadedFiles": 4,
+      "downloadedBytes": 161129,
+      "reusedFiles": 6,
+      "confirmedAfterRestart": true,
+      "activeStayedUntilApply": true
+    },
+    {
+      "startingComponents": "3.0.1",
+      "shellVersion": "3.0.1",
+      "componentVersion": "3.1",
+      "downloadedFiles": 4,
+      "downloadedBytes": 161129,
+      "reusedFiles": 6,
+      "confirmedAfterRestart": true,
+      "activeStayedUntilApply": true
+    },
+    {
+      "startingComponents": "3.0+3.0.1",
+      "shellVersion": "3.0",
+      "componentVersion": "3.1",
+      "downloadedFiles": 4,
+      "downloadedBytes": 161129,
+      "reusedFiles": 6,
+      "confirmedAfterRestart": true,
+      "activeStayedUntilApply": true
+    }
+  ],
+  "shellVersion": "3.1",
+  "versionCode": 30100,
+  "componentRevision": 30100,
+  "timezone": "Europe/Moscow",
+  "certificateSha256": "2DA8C0B059D20AF21BA8C2EE6C0FA7E624802DEB47BC5E55BC7253CC6BE366C7",
+  "nativeSnapshotChecks": 26,
+  "apkUpgradeFloorTested": true,
+  "compiledWidgetProviders": 4,
+  "oldArtifactsUnchanged": true,
+  "onDeviceInstallationTested": false,
+  "launcherWidgetHostTested": false,
+  "browserScenarioGroups": 12
+}

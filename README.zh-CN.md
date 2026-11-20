@@ -2,109 +2,77 @@
 
 <div align="center">
 
-
-<img src="cover.png" alt="Slovoplet">
-
-# Slovoplet · Beta
-
-**开发和测试应用组件更新。**
-安装一次 APK，即可通过独立的 beta 渠道获取网页版游戏组件的新版本。
-
-![Beta 渠道](https://img.shields.io/badge/channel-beta-e3a72f)
-![APK 外壳 3.0](https://img.shields.io/badge/APK-3.0-5478dc)
-![组件 3.0.1](https://img.shields.io/badge/components-3.0.1-e3a72f)
-![Android 7 及以上](https://img.shields.io/badge/Android-7.0%2B-36a171)
-
-[**下载 APK 3.0 beta**](https://github.com/iluhin/app.slovoplet.beta/releases/download/beta-v3.0.0-r2/slovoplet-beta-3.0.apk) ·
-[**测试更新**](docs/TESTING.md) ·
-[**Beta 指南**](wiki/Home.md) ·
-[**稳定版**](https://github.com/iluhin/app.slovoplet/tree/main)
+<img src="cover.png" alt="Slovoplet Beta">
 
 </div>
 
-**修正版 r2：** 正确的应用 ID 为 com.iluhin.fiveletters.beta。请将 APK 3.0 作为独立应用安装，无法覆盖旧的 con 包。所有者的签名证书保持不变。[详细说明](docs/MIGRATION.md)。
+# Slovoplet · Beta 3.1
 
-> 这里是独立的 **Slovoplet Beta** 仓库，用于测试应用组件更新机制。
-> 日常游玩请使用[稳定版](https://github.com/iluhin/app.slovoplet/releases/latest)。
-> 自动检查已完成；Android 实机测试仍在等待测试者反馈。
+**桌面小组件、动态快捷方式和组件更新。**
+Beta 3.1 引入了稳定版 2.8 计划中的功能。稳定渠道与 beta 渠道分别编号。
 
-## 已发布版本
+[**测试 OTA 更新到 3.1**](docs/TESTING.md) ·
+[**APK 3.1 — 小组件**](https://github.com/iluhin/app.slovoplet.beta/releases/download/beta-v3.1.0/slovoplet-beta-3.1.apk) ·
+[**Beta 发布版本**](releases/README.md) ·
+[**稳定版游戏**](https://github.com/iluhin/app.slovoplet)
 
-| 部分 | 版本 | 用途 |
+## 本次发布的两个部分
+
+| 部分 | 版本 | 获取方式 |
 |---|---|---|
-| Android 原生外壳 | **3.0**，构建号 `30000` | 安装一次，用于测试 OTA 更新 |
-| Web 组件 | **3.0.1**，修订号 `30001` | 在 3.0 内接收，无需安装新的 APK |
-| 参考 APK | **3.0.1**，构建号 `30001` | 用于全新安装和对比；OTA 测试不需要此文件 |
-| 游戏基础版本 | **2.7.2** | beta 开发开始时的最新稳定版 |
+| Web 组件 | **3.1**，修订号 **30100** | 在已安装的修正版 beta 3.0 / 3.0.1 内更新 |
+| Android 原生外壳 | **3.1**，构建号 **30100** | 在修正后的 com beta 上安装 APK 3.1 |
+| 应用 ID | **com.iluhin.fiveletters.beta** | 保留所有者原有的签名证书 |
 
-Beta 应用名为 **“Словоплёт β”**，可以与常规版游戏同时安装。
-应用 ID 为 `com.iluhin.fiveletters.beta`，使用项目所有者原有的签名证书。
+**测试 OTA 时，请勿先安装 APK 3.1。** 打开已安装的 beta 3.0 / 3.0.1，
+点击底部 beta 按钮并检查更新。完成本局后应用下载的组件。
+预期结果：**APK 外壳 3.0（或 3.0.1）· 组件 3.1**，不会打开 Android 安装程序。
 
-## 首次测试：3.0 → 3.0.1
+需要初始 APK 时，可下载 [3.0 r2](https://github.com/iluhin/app.slovoplet.beta/releases/download/beta-v3.0.0-r2/slovoplet-beta-3.0.apk)。
+完成组件测试后，可在修正版 beta 上安装 APK 3.1；
+应用 ID 和证书相同，无需卸载修正版应用。
 
-应用按钮为俄语，以下步骤保留了实际显示的文字，便于查找。
+## 从 2.8 计划引入的功能
 
-1. 安装 [APK 3.0 beta](https://github.com/iluhin/app.slovoplet.beta/releases/download/beta-v3.0.0-r2/slovoplet-beta-3.0.apk)，联网打开游戏。
-2. 点击底部的 **“β · Готова 3.0.1”**（“β · 3.0.1 已就绪”）。如有需要，点击“Проверить обновления”（“检查更新”）。
-3. 完成本局后，点击 **“Применить без установки APK”**（“无需安装 APK，直接应用”）。
-4. 确认结果：**APK 外壳 3.0、组件 3.0.1**，并显示“Проверка OTA пройдена”（“OTA 检查通过”）。
-5. 在游戏主界面按 Android 返回键退出，断开网络后重新打开游戏：组件 3.0.1 应继续生效。
+- **统计小组件**：游戏次数、胜场、连胜、最佳用时；加宽后显示各尝试次数的胜场分布。
+- **每日单词**：完成状态及距离莫斯科新一天的大致时间。
+- **快速开始**：新游戏或继续游戏，仅显示上一局的五个彩色方格，不显示字母。
+- **排行榜**：前三名、已知的个人名次以及数据保存时间。
+- **动态快捷方式**：新建/继续、每日单词、排行榜和个人资料。
+- **游戏内小组件预览**：随组件 3.1 更新到旧版外壳上。
 
-**进行此项测试时，请勿安装参考 APK 3.0.1。** Android 设置中显示的版本仍为 3.0：
-更新的是游戏内容，已安装的原生外壳版本保持不变。
-[完整测试步骤、回滚与问题报告 →](docs/TESTING.md)
+真正的桌面小组件和快捷方式需要 **APK 3.1**。
+Web 文件更新无法增加 Java 类或 Android 资源。小组件支持 Android 7.0 及以上；
+动态快捷方式需要 Android 7.1 及兼容的桌面启动器。
+[设置与使用说明 →](docs/WIDGETS.md)
 
-## 更新机制
+## 更新与数据
 
-```mermaid
-flowchart LR
-    A["APK 3.0<br/>原生外壳"] --> B["Beta 渠道<br/>签名 + SHA-256"]
-    B --> C["已变更的组件<br/>独立目录"]
-    C --> D["组件 3.0.1<br/>确认启动成功"]
-    D -->|"启动失败"| E["回滚到可用版本"]
-```
+RSA/SHA-256 签名清单描述完整文件集合，只下载已变更的组件。
+更新在本局结束后或重新启动时应用。启动确认和回滚保护可用版本，
+原生外壳、组件和网站的版本分别显示。
 
-- 可更新 HTML、JavaScript、CSS、图片和内置数据；仅下载已变更的文件。
-- 在 3.0 → 3.0.1 测试中，下载**一个 152 字节的组件**，复用另外九个文件。清单单独传输。
-- 下载不会重启正在进行的游戏。可在本局结束后点击按钮应用更新，或在下次重新启动应用时应用。
-- 清单由所有者的密钥签名，公钥固定在 APK 中。加载器会检查哈希、路径、大小、版本和兼容性。
-- 原生代码、权限和 Android 应用图标的变更需要新的 APK。组件更新检查仅在应用运行时进行。
+小组件保存本地快照，可离线显示。排行榜仅在实际使用游戏时刷新，
+额外请求最多每 30 分钟一次。游戏关闭后不进行后台请求，
+避免造成虚假的在线状态和访问统计。小组件会标明数据保存时间。
+每日时间按 Europe/Moscow 计算；约每 30 分钟一次的系统刷新可能被 Android 延迟。
 
-[架构与渠道格式 →](wiki/Architecture.md) · [检查结果与限制 →](docs/VERIFICATION.md)
+Beta 与常规版共用游戏服务器。本地数据相互独立，
+使用相同用户名登录时会打开同一个服务器个人资料。
 
-## Beta 开发
+## 文档
 
-以下链接中的指南和技术文档目前使用俄语。
+[更新记录](CHANGELOG.md) · [开发计划](ROADMAP.md) · [OTA 测试](docs/TESTING.md) ·
+[小组件](docs/WIDGETS.md) · [检查结果与限制](docs/VERIFICATION.md) ·
+[OTA 格式](ota/README.md) · [发布流程](docs/RELEASING.md) ·
+[报告问题](CONTRIBUTING.md) · [指南](wiki/Home.md)
 
-| 章节 | 内容 |
-|---|---|
-| [Beta 更新记录](CHANGELOG.md) | 原生外壳和组件各自的变更 |
-| [开发计划](ROADMAP.md) | 已完成工作、待验证项目和后续任务 |
-| [Beta 迁移说明](docs/MIGRATION.md) | 地址、APK 兼容性及签名文件的保留方式 |
-| [发布流程](docs/RELEASING.md) | 文件准备、签名、发布和验证 |
-| [OTA 格式](ota/README.md) | 签名清单及以 SHA-256 标识的组件 |
-| [报告问题](CONTRIBUTING.md) | 报告中应包含的版本和复现步骤 |
-| [Beta 发布版本](releases/README.md) | 初始 APK、参考 APK 和组件压缩包 |
+链接中的指南和游戏按钮目前使用俄语。本公开仓库保存文档和已准备的构建，
+主要源代码另行保存。APK 继续使用所有者原有的签名密钥。
+旧的错误 con 包属于另一应用：[迁移说明](docs/MIGRATION.md)。
 
-本仓库是文档和已准备好的 beta 构建的公开发布渠道。
-网站及 Android 应用的主要源代码保存在另一个私有仓库。
-这里的 workflow 检查并发布**已准备好的**文件，不负责编译或签名应用。
-
-**beta-dist/** 存放 beta 发布文件；**wiki/** 存放本仓库的指南。
-**ota/** 是修正后的 3.0 / 3.0.1 构建使用的签名组件渠道。
-修正后的 APK 直接从本仓库获取更新：
-[从旧的错误包名迁移](docs/MIGRATION.md)。
-稳定版 APK 及其历史记录保留在[主仓库](https://github.com/iluhin/app.slovoplet)。
-
-Beta 与常规版使用同一个游戏服务器。应用的本地数据相互独立，
-但使用相同用户名登录时，会打开同一个服务器个人资料。[详细说明 →](wiki/FAQ.md#профиль-и-данные)
-
-## 稳定版历史
-
-Beta 以 2.7.2 为基础。所有稳定版发布记录以及游戏和网站的详细开发历史，
-均保留在[主仓库](https://github.com/iluhin/app.slovoplet/blob/main/wiki/Versions.md)。
-Beta 发布版本请见[这里](releases/README.md)。
+验证报告说明了自动检查及其适用范围。
+真机安装、小组件放置、启动器行为和耗电情况仍待测试者反馈。
 
 ---
-
-© Ilya Anisimov · [iluh.in](https://iluh.in) · [main / 稳定渠道](https://github.com/iluhin/app.slovoplet/tree/main)
+© Ilya Anisimov · [iluh.in](https://iluh.in)
