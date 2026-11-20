@@ -3,7 +3,7 @@
 [Главная beta](../README.md) · [Проверить 3.0 → 3.0.1](../docs/TESTING.md) · [Архитектура](../wiki/Architecture.md)
 
 Текущая версия компонентов — **3.0.1**, ревизия `30001`.
-Совместимые сборки оболочки: `30000–39999`. Пакет: `con.iluhin.fiveletters.beta`.
+Совместимые сборки оболочки: `30000–39999`. Пакет: `com.iluhin.fiveletters.beta`.
 
 | Файл | Роль |
 |---|---|
@@ -14,21 +14,15 @@
 | [public-key.pem](public-key.pem) | Открытый ключ для независимой проверки подписи |
 | [checksums.json](checksums.json) | Контрольные суммы подготовленных файлов релизов |
 
-## Адреса после переноса
+## Канал исправленных сборок
 
-Эта папка содержит точную копию подписанных снимков 3.0 / 3.0.1.
-Копия доступна в main нового репозитория:
+Исправленные APK com.iluhin.fiveletters.beta используют:
 
 https://raw.githubusercontent.com/iluhin/app.slovoplet.beta/main/ota/manifest.json
 
-Установленные APK 3.0 / 3.0.1 продолжают читать прежний канал:
-
-https://raw.githubusercontent.com/iluhin/app.slovoplet/beta/ota/manifest.json
-
-Адреса blobs внутри подписанного payload также прежние. Они сохранены вместе
-с технической веткой, потому что старый загрузчик отвергает чужой origin и
-перенаправления. Для самостоятельного канала по новому адресу понадобится
-следующая APK-оболочка. [Подробности](../docs/MIGRATION.md).
+Пакет, URL и RSA-подпись манифестов согласованы с исправленными APK.
+Первоначальные con-сборки работают с прежним отдельным каналом;
+[порядок перехода](../docs/MIGRATION.md).
 
 ## Манифест
 
@@ -47,7 +41,7 @@ https://raw.githubusercontent.com/iluhin/app.slovoplet/beta/ota/manifest.json
 |---|---|
 | `format` | `1` |
 | `channel` | `beta` |
-| `applicationId` | `con.iluhin.fiveletters.beta` |
+| `applicationId` | `com.iluhin.fiveletters.beta` |
 | `version` / `revision` | `3.0.1` / `30001` |
 | `minShell` / `maxShell` | `30000` / `39999` |
 | `files` | Полный набор из 10 файлов с `path`, `size`, `sha256`, `url` |
@@ -59,7 +53,7 @@ patch равен нулю, каждая часть не больше 99. Это 
 URL компонента имеет вид:
 
 ```text
-https://raw.githubusercontent.com/iluhin/app.slovoplet/beta/ota/blobs/<sha256>.bin
+https://raw.githubusercontent.com/iluhin/app.slovoplet.beta/main/ota/blobs/<sha256>.bin
 ```
 
 Хеш в имени, хеш содержимого и хеш в подписанном payload должны совпасть.

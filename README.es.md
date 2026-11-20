@@ -15,12 +15,14 @@ Instala el APK una vez y recibe nuevas versiones de la parte web a través de un
 ![Componentes 3.0.1](https://img.shields.io/badge/componentes-3.0.1-e3a72f)
 ![Android 7 o posterior](https://img.shields.io/badge/Android-7.0%2B-36a171)
 
-[**Descargar APK 3.0 beta**](https://github.com/iluhin/app.slovoplet.beta/releases/download/beta-v3.0.0/slovoplet-beta-3.0.apk) ·
+[**Descargar APK 3.0 beta**](https://github.com/iluhin/app.slovoplet.beta/releases/download/beta-v3.0.0-r2/slovoplet-beta-3.0.apk) ·
 [**Probar la actualización**](docs/TESTING.md) ·
 [**Guía de la beta**](wiki/Home.md) ·
 [**Versión estable**](https://github.com/iluhin/app.slovoplet/tree/main)
 
 </div>
+
+**Compilación corregida r2:** el identificador es com.iluhin.fiveletters.beta. Instala el APK 3.0 como una aplicación independiente; no puede reemplazar el antiguo paquete con. Se conserva el certificado del propietario. [Detalles](docs/MIGRATION.md).
 
 > Este es el repositorio independiente de **Slovoplet Beta**, donde probamos las actualizaciones por componentes.
 > Para jugar habitualmente, utiliza la [versión estable](https://github.com/iluhin/app.slovoplet/releases/latest).
@@ -36,13 +38,13 @@ Instala el APK una vez y recibe nuevas versiones de la parte web a través de un
 | Versión de partida del juego | **2.7.2** | Última versión estable cuando comenzó el desarrollo de la beta |
 
 La aplicación beta se llama **«Словоплёт β»** y se puede instalar junto al juego habitual.
-Su identificador es `con.iluhin.fiveletters.beta`; utiliza el certificado de firma del propietario del proyecto.
+Su identificador es `com.iluhin.fiveletters.beta`; utiliza el certificado de firma del propietario del proyecto.
 
 ## Primera prueba: 3.0 → 3.0.1
 
 Los botones de la aplicación están en ruso; estos pasos conservan sus nombres para que puedas identificarlos.
 
-1. Instala el [APK 3.0 beta](https://github.com/iluhin/app.slovoplet.beta/releases/download/beta-v3.0.0/slovoplet-beta-3.0.apk) y abre el juego con conexión a Internet.
+1. Instala el [APK 3.0 beta](https://github.com/iluhin/app.slovoplet.beta/releases/download/beta-v3.0.0-r2/slovoplet-beta-3.0.apk) y abre el juego con conexión a Internet.
 2. Pulsa **«β · Готова 3.0.1»** («β · 3.0.1 lista») en la parte inferior. Si hace falta, pulsa «Проверить обновления» («Buscar actualizaciones»).
 3. Termina la partida y pulsa **«Применить без установки APK»** («Aplicar sin instalar un APK»).
 4. Comprueba el resultado: **contenedor APK 3.0, componentes 3.0.1** y el mensaje «Проверка OTA пройдена» («Comprobación OTA superada»).
@@ -89,9 +91,9 @@ El código fuente principal del sitio y de la aplicación Android se guarda en o
 El workflow de este repositorio comprueba y publica archivos **ya preparados**; no compila ni firma la aplicación.
 
 **beta-dist/** contiene los archivos de los lanzamientos beta; **wiki/** contiene las guías de este repositorio.
-**ota/** es una copia exacta de los componentes firmados de 3.0 / 3.0.1.
-Los APK ya publicados los obtienen de la dirección original conservada:
-[detalles de la migración](docs/MIGRATION.md).
+**ota/** es el canal de componentes firmados de las compilaciones corregidas 3.0 / 3.0.1.
+Los APK corregidos reciben actualizaciones directamente desde este repositorio:
+[migración desde el antiguo paquete con el identificador incorrecto](docs/MIGRATION.md).
 Los APK estables y su historial permanecen en el [repositorio principal](https://github.com/iluhin/app.slovoplet).
 
 La beta utiliza el mismo servidor de juego. Las aplicaciones tienen datos locales separados,

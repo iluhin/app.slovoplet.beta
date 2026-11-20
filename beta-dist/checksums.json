@@ -1,38 +1,26 @@
 {
-  "delta.json": {
-    "bytes": 348,
-    "sha256": "1bd94f519120e176c4c211ffed192efff2f4cc892472e75151ab05ae59964777"
-  },
-  "payload-3.0.1.json": {
-    "bytes": 2812,
-    "sha256": "82967115b839d5d6bf7388bdd26460ca3b038bb0dc14bff473835038a07c6471"
-  },
-  "manifest-3.0.json": {
-    "bytes": 4121,
-    "sha256": "aaf74a0a04a14505d2203761d9319543a7f4ef9b5ca37ddd1711ba903357ef9c"
-  },
-  "slovoplet-beta-3.0.apk": {
-    "bytes": 648135,
-    "sha256": "d14ba61aba0c48717b155218b14261871ec9b09e8e5c35a12c989b4587468f85"
-  },
-  "payload-3.0.json": {
-    "bytes": 2810,
-    "sha256": "a960a9b2a0214caa99c8ad09ea03aecf5013620cbd3d833859267d5f976925ec"
-  },
-  "slovoplet-beta-3.0.1.apk": {
-    "bytes": 648168,
-    "sha256": "0b0db1b192bad0046cd4f5a0750a50614a2100f0fc55767004450e3a8cc10e57"
-  },
   "components-3.0.1.zip": {
-    "bytes": 104600,
-    "sha256": "6a6d1af7b9b33bf1cacca6ba4396e15619193bbd5a4466066da94ec098302dd6"
+    "bytes": 104738,
+    "sha256": "c9053a631a1625f5cf733c3ca48c9f96f9de015c45fae6f3d497b583a6e87cc5"
   },
   "components-3.0.zip": {
-    "bytes": 104572,
-    "sha256": "eadfd2b069a351aadb81a2abe0ebeedab16602f292ee303cedcc9ea216f89179"
+    "bytes": 104703,
+    "sha256": "53509a9da8eee36109873bc068672f114cc50cdaeb465e9768b70628e576f0b0"
   },
   "manifest-3.0.1.json": {
-    "bytes": 4125,
-    "sha256": "0887ab85eb7a14b02312da819c375dd69691b091a57c0534edfff1a56005bb18"
+    "bytes": 4189,
+    "sha256": "832500649260c91b5ad5fc6ba41338ad5568268212d2e422bf4992312efe0f20"
+  },
+  "manifest-3.0.json": {
+    "bytes": 4189,
+    "sha256": "7025c7d41065d222633fba68cbb842cfa4b1f75e4e5026b50a07053e66082024"
+  },
+  "slovoplet-beta-3.0.1.apk": {
+    "bytes": 648170,
+    "sha256": "f4ecbba7c35c66649ae625db8022eb8c57689d50b836d7a8b8936635ddefa111"
+  },
+  "slovoplet-beta-3.0.apk": {
+    "bytes": 648123,
+    "sha256": "589aa567660c915e505eca9b1e90f3a85e3bc4d788bf31069709a9db87ead9de"
   }
 }

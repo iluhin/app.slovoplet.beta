@@ -15,12 +15,14 @@
 ![组件 3.0.1](https://img.shields.io/badge/components-3.0.1-e3a72f)
 ![Android 7 及以上](https://img.shields.io/badge/Android-7.0%2B-36a171)
 
-[**下载 APK 3.0 beta**](https://github.com/iluhin/app.slovoplet.beta/releases/download/beta-v3.0.0/slovoplet-beta-3.0.apk) ·
+[**下载 APK 3.0 beta**](https://github.com/iluhin/app.slovoplet.beta/releases/download/beta-v3.0.0-r2/slovoplet-beta-3.0.apk) ·
 [**测试更新**](docs/TESTING.md) ·
 [**Beta 指南**](wiki/Home.md) ·
 [**稳定版**](https://github.com/iluhin/app.slovoplet/tree/main)
 
 </div>
+
+**修正版 r2：** 正确的应用 ID 为 com.iluhin.fiveletters.beta。请将 APK 3.0 作为独立应用安装，无法覆盖旧的 con 包。所有者的签名证书保持不变。[详细说明](docs/MIGRATION.md)。
 
 > 这里是独立的 **Slovoplet Beta** 仓库，用于测试应用组件更新机制。
 > 日常游玩请使用[稳定版](https://github.com/iluhin/app.slovoplet/releases/latest)。
@@ -36,13 +38,13 @@
 | 游戏基础版本 | **2.7.2** | beta 开发开始时的最新稳定版 |
 
 Beta 应用名为 **“Словоплёт β”**，可以与常规版游戏同时安装。
-应用 ID 为 `con.iluhin.fiveletters.beta`，使用项目所有者原有的签名证书。
+应用 ID 为 `com.iluhin.fiveletters.beta`，使用项目所有者原有的签名证书。
 
 ## 首次测试：3.0 → 3.0.1
 
 应用按钮为俄语，以下步骤保留了实际显示的文字，便于查找。
 
-1. 安装 [APK 3.0 beta](https://github.com/iluhin/app.slovoplet.beta/releases/download/beta-v3.0.0/slovoplet-beta-3.0.apk)，联网打开游戏。
+1. 安装 [APK 3.0 beta](https://github.com/iluhin/app.slovoplet.beta/releases/download/beta-v3.0.0-r2/slovoplet-beta-3.0.apk)，联网打开游戏。
 2. 点击底部的 **“β · Готова 3.0.1”**（“β · 3.0.1 已就绪”）。如有需要，点击“Проверить обновления”（“检查更新”）。
 3. 完成本局后，点击 **“Применить без установки APK”**（“无需安装 APK，直接应用”）。
 4. 确认结果：**APK 外壳 3.0、组件 3.0.1**，并显示“Проверка OTA пройдена”（“OTA 检查通过”）。
@@ -89,9 +91,9 @@ flowchart LR
 这里的 workflow 检查并发布**已准备好的**文件，不负责编译或签名应用。
 
 **beta-dist/** 存放 beta 发布文件；**wiki/** 存放本仓库的指南。
-**ota/** 是 3.0 / 3.0.1 签名组件的完整副本。
-已经发布的 APK 仍从保留的原地址获取组件：
-[迁移机制说明](docs/MIGRATION.md)。
+**ota/** 是修正后的 3.0 / 3.0.1 构建使用的签名组件渠道。
+修正后的 APK 直接从本仓库获取更新：
+[从旧的错误包名迁移](docs/MIGRATION.md)。
 稳定版 APK 及其历史记录保留在[主仓库](https://github.com/iluhin/app.slovoplet)。
 
 Beta 与常规版使用同一个游戏服务器。应用的本地数据相互独立，

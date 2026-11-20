@@ -3,12 +3,12 @@
 [Справка beta](Home.md) · [Проверка обновления](../docs/TESTING.md)
 
 Требуется **Android 7.0 или новее**. Название приложения — **Словоплёт β**,
-идентификатор — `con.iluhin.fiveletters.beta`. Beta и стабильная игра могут быть
+идентификатор — `com.iluhin.fiveletters.beta`. Beta и стабильная игра могут быть
 установлены одновременно: это разные пакеты с раздельными локальными данными.
 
 ## Для первого теста
 
-1. Скачайте [slovoplet-beta-3.0.apk](https://github.com/iluhin/app.slovoplet.beta/releases/download/beta-v3.0.0/slovoplet-beta-3.0.apk).
+1. Скачайте [slovoplet-beta-3.0.apk](https://github.com/iluhin/app.slovoplet.beta/releases/download/beta-v3.0.0-r2/slovoplet-beta-3.0.apk).
 2. Откройте файл и при запросе Android разрешите установку приложений этому источнику.
 3. Запустите «Словоплёт β» с интернетом.
 4. Откройте кнопку beta внизу игры и выполните [обновление компонентов до 3.0.1](../docs/TESTING.md).
@@ -24,9 +24,13 @@
 | HTML, JavaScript, CSS, изображения и встроенные данные | Подписанные компоненты из beta-канала; без установщика APK |
 | Нативный код, разрешения, иконка Android, ресурсы оболочки | Новый подписанный APK через системную установку |
 
-Контрольный [APK 3.0.1](https://github.com/iluhin/app.slovoplet.beta/releases/download/beta-v3.0.1/slovoplet-beta-3.0.1.apk)
+Контрольный [APK 3.0.1](https://github.com/iluhin/app.slovoplet.beta/releases/download/beta-v3.0.1-r2/slovoplet-beta-3.0.1.apk)
 содержит обе части 3.0.1 сразу. **Не ставьте его поверх 3.0 для теста OTA** —
 иначе будет проверена обычная установка APK, а не обновление компонентов.
 
 Beta-APK не являются сборками из магазина. Обычный сайт и стабильные релизы
 доступны через [main](https://github.com/iluhin/app.slovoplet/tree/main).
+
+## Переход с ошибочного пакета
+
+Исправленный com.iluhin.fiveletters.beta устанавливается отдельно от старого con-пакета. Для теста берите APK 3.0 сборки r2. [Идентификатор, подпись и перенос](../docs/MIGRATION.md).

@@ -4,8 +4,8 @@
 
 ## Подготовка
 
-- Android 7.0 или новее, интернет и [APK 3.0 beta](https://github.com/iluhin/app.slovoplet.beta/releases/download/beta-v3.0.0/slovoplet-beta-3.0.apk).
-- Запускайте **«Словоплёт β»**, пакет `con.iluhin.fiveletters.beta`.
+- Android 7.0 или новее, интернет и [APK 3.0 beta](https://github.com/iluhin/app.slovoplet.beta/releases/download/beta-v3.0.0-r2/slovoplet-beta-3.0.apk).
+- Запускайте **«Словоплёт β»**, пакет `com.iluhin.fiveletters.beta`.
 - Контрольный APK 3.0.1 не устанавливайте: он уже содержит целевые компоненты.
 - Стабильную игру удалять не нужно. Для независимой проверки используйте гостя или отдельный профиль: сервер общий.
 
