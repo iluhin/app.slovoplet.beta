@@ -1,0 +1,17 @@
+{
+  "format": 1,
+  "channel": "beta",
+  "applicationId": "com.iluhin.fiveletters.beta",
+  "versionName": "3.1.2",
+  "versionCode": 30102,
+  "downloadUrl": "https://github.com/iluhin/app.slovoplet.beta/releases/download/beta-v3.1.2/slovoplet-beta-3.1.2.apk",
+  "size": 717804,
+  "sha256": "96701a1d9a9c358abfe12f9165e387be593e3a53442588c7fff5baba5208ecfc",
+  "certificateSha256": "2DA8C0B059D20AF21BA8C2EE6C0FA7E624802DEB47BC5E55BC7253CC6BE366C7",
+  "notesList": [
+    {
+      "version": "3.1.2",
+      "notes": "Виджеты в стиле игры\n- Выбранная тема, игровые плитки и график попыток\n- Уведомление о новой версии приложения с кнопкой обновления\n- Обновление поверх beta без удаления данных"
+    }
+  ]
+}
