@@ -1,0 +1,17 @@
+{
+  "applicationId": "com.iluhin.fiveletters.beta",
+  "previousApplicationId": "con.iluhin.fiveletters.beta",
+  "otaOrigin": "https://raw.githubusercontent.com/iluhin/app.slovoplet.beta/main/ota/",
+  "certificateSha256": "2DA8C0B059D20AF21BA8C2EE6C0FA7E624802DEB47BC5E55BC7253CC6BE366C7",
+  "actionsRun": "https://github.com/iluhin/app.slovoplet.beta/actions/runs/44691184374",
+  "downloadedAssetsVerified": 8,
+  "publishedHttpsLoaderTest": {
+    "shellVersion": "3.0",
+    "componentVersion": "3.0.1",
+    "downloadedFiles": 1,
+    "downloadedBytes": 152,
+    "reusedFiles": 9,
+    "confirmedAfterRestart": true
+  },
+  "onDeviceInstallationTested": false
+}
