@@ -1,5 +1,5 @@
 {
-  "status": "verified-locally-before-publication",
+  "status": "published-and-verified",
   "applicationId": "com.iluhin.fiveletters.beta",
   "shellVersion": "3.1.2",
   "versionCode": 30102,
@@ -186,5 +186,61 @@
       }
     ],
     "pixel9ProAndroid17Tested": false
-  }
+  },
+  "actionsRun": "https://github.com/iluhin/app.slovoplet.beta/actions/runs/44736595315",
+  "actionsConclusion": "success",
+  "stagedPublicationActionsRun": "https://github.com/iluhin/app.slovoplet.beta/actions/runs/44736505632",
+  "release": "https://github.com/iluhin/app.slovoplet.beta/releases/tag/beta-v3.1.2",
+  "downloadedReleaseAssetsVerified": 4,
+  "finalReleaseAssetDigestsMatched": true,
+  "apkNotificationAdvertisedAfterReleaseAssetsVerified": true,
+  "publishedHttpsLoader": {
+    "mode": "published-https",
+    "applicationId": "com.iluhin.fiveletters.beta",
+    "upgrades": [
+      {
+        "startingComponents": "3.0",
+        "shellVersion": "3.0",
+        "componentVersion": "3.1.2",
+        "downloadedFiles": 4,
+        "downloadedBytes": 166415,
+        "reusedFiles": 6,
+        "confirmedAfterRestart": true,
+        "activeStayedUntilApply": true
+      },
+      {
+        "startingComponents": "3.0.1",
+        "shellVersion": "3.0.1",
+        "componentVersion": "3.1.2",
+        "downloadedFiles": 4,
+        "downloadedBytes": 166415,
+        "reusedFiles": 6,
+        "confirmedAfterRestart": true,
+        "activeStayedUntilApply": true
+      },
+      {
+        "startingComponents": "3.0+3.0.1",
+        "shellVersion": "3.0",
+        "componentVersion": "3.1.2",
+        "downloadedFiles": 4,
+        "downloadedBytes": 166415,
+        "reusedFiles": 6,
+        "confirmedAfterRestart": true,
+        "activeStayedUntilApply": true
+      },
+      {
+        "startingComponents": "3.1.1",
+        "shellVersion": "3.1.1",
+        "componentVersion": "3.1.2",
+        "downloadedFiles": 3,
+        "downloadedBytes": 107611,
+        "reusedFiles": 7,
+        "confirmedAfterRestart": true,
+        "activeStayedUntilApply": true
+      }
+    ],
+    "publishedCurrentManifestMatched": true,
+    "publishedApkMetadataMatched": true
+  },
+  "previousReleaseRecordsAndAssetsUnchanged": true
 }
