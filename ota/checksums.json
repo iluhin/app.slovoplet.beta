@@ -7,6 +7,10 @@
     "bytes": 104703,
     "sha256": "53509a9da8eee36109873bc068672f114cc50cdaeb465e9768b70628e576f0b0"
   },
+  "components-3.1.1.zip": {
+    "bytes": 108480,
+    "sha256": "8dab8406bada3223a6343d32d2e04b1b4e8b3384b30dc56d434f6a5bdde8e71c"
+  },
   "components-3.1.zip": {
     "bytes": 108456,
     "sha256": "e2580d44e0b7d509d2dd8845f35480af024aacaec2ec078f9121530cf6017be1"
@@ -19,6 +23,10 @@
     "bytes": 4189,
     "sha256": "7025c7d41065d222633fba68cbb842cfa4b1f75e4e5026b50a07053e66082024"
   },
+  "manifest-3.1.1.json": {
+    "bytes": 4189,
+    "sha256": "58b564bf48e2049b7a44ce92e7bb4cf807125322b2902e4924ad038d2604453a"
+  },
   "manifest-3.1.json": {
     "bytes": 4189,
     "sha256": "7f4f43bd1227289db1efa58cadb2bc02fbffbffd5a16fc818feb857b714e2f4a"
@@ -30,6 +38,10 @@
   "slovoplet-beta-3.0.apk": {
     "bytes": 648123,
     "sha256": "589aa567660c915e505eca9b1e90f3a85e3bc4d788bf31069709a9db87ead9de"
+  },
+  "slovoplet-beta-3.1.1.apk": {
+    "bytes": 667900,
+    "sha256": "cd8dd068b97b39cefd2992b815421733ea246651938638f8bd25d70c91d93531"
   },
   "slovoplet-beta-3.1.apk": {
     "bytes": 667881,

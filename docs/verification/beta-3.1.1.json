@@ -1,0 +1,38 @@
+{
+  "environment": "Android Emulator API 28 x86_64, software CPU",
+  "applicationId": "com.iluhin.fiveletters.beta",
+  "fromVersion": "3.1",
+  "toVersion": "3.1.1",
+  "versionCode": 30101,
+  "packageDataMarkerPreserved": true,
+  "launches": [
+    {
+      "coldLaunch": 1,
+      "processAlive": true,
+      "noFatalException": true
+    },
+    {
+      "coldLaunch": 2,
+      "processAlive": true,
+      "noFatalException": true
+    },
+    {
+      "coldLaunch": 3,
+      "processAlive": true,
+      "noFatalException": true
+    }
+  ],
+  "pixel9ProAndroid17Tested": false,
+  "status": "verified-locally-before-publication",
+  "rootCause": "APK 3.1 compiled against android-all resolved hidden ShortcutManager.disableShortcuts(List,String), absent on device",
+  "reproducedException": "java.lang.NoSuchMethodError: disableShortcuts(Ljava/util/List;Ljava/lang/String;)V",
+  "fixedDescriptor": "(Ljava/util/List;Ljava/lang/CharSequence;)V",
+  "compileSdk": "official Android SDK 34 android.jar",
+  "apkSha256": "cd8dd068b97b39cefd2992b815421733ea246651938638f8bd25d70c91d93531",
+  "certificateSha256": "2DA8C0B059D20AF21BA8C2EE6C0FA7E624802DEB47BC5E55BC7253CC6BE366C7",
+  "fullGameplayValidatedOnEmulator": false,
+  "environmentLimitations": [
+    "Software CPU emulation produced a System UI ANR; launcher and full gameplay are not certified by the native process/start checks."
+  ],
+  "onPixel9ProAndroid17Tested": false
+}

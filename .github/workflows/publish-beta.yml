@@ -1,9 +1,9 @@
-name: Publish beta 3.1
+name: Publish beta 3.1.1
 on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['beta-dist/**', '.github/workflows/publish-beta.yml', '.github/scripts/verify_beta.py', 'ota/**']
+    paths: ['beta-dist/**', '.github/workflows/publish-beta.yml', '.github/scripts/verify_beta.py', '.github/scripts/verify_shortcuts.py', 'ota/**']
 permissions:
   contents: write
 jobs:
@@ -18,13 +18,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          for pair in '3.1:beta-v3.1.0'; do
+          for pair in '3.1.1:beta-v3.1.1'; do
             version="${pair%%:*}"
             tag="${pair#*:}"
             if gh release view "$tag" >/dev/null 2>&1; then
               gh release upload "$tag" "beta-dist/slovoplet-beta-$version.apk" "beta-dist/components-$version.zip" "beta-dist/manifest-$version.json" beta-dist/checksums.json --clobber
-              gh release edit "$tag" --prerelease --latest=false --draft=false --title "$version beta — виджеты и обновление компонентов" --notes-file "releases/$tag.md"
+              gh release edit "$tag" --prerelease --latest=false --draft=false --title "$version beta — исправлен вылет при запуске" --notes-file "releases/$tag.md"
             else
-              gh release create "$tag" "beta-dist/slovoplet-beta-$version.apk" "beta-dist/components-$version.zip" "beta-dist/manifest-$version.json" beta-dist/checksums.json --target main --prerelease --latest=false --title "$version beta — виджеты и обновление компонентов" --notes-file "releases/$tag.md"
+              gh release create "$tag" "beta-dist/slovoplet-beta-$version.apk" "beta-dist/components-$version.zip" "beta-dist/manifest-$version.json" beta-dist/checksums.json --target main --prerelease --latest=false --title "$version beta — исправлен вылет при запуске" --notes-file "releases/$tag.md"
             fi
           done

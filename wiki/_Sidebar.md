@@ -3,7 +3,7 @@
 - [Главная beta](../README.md)
 - [Справка](Home.md)
 - [Установка Android](Android.md)
-- [Обновление до 3.1](../docs/TESTING.md)
+- [Обновление до 3.1.1](../docs/TESTING.md)
 - [Виджеты](../docs/WIDGETS.md)
 - [Версии](Versions.md)
 - [Архитектура](Architecture.md)
