@@ -23,7 +23,7 @@
     }
   ],
   "pixel9ProAndroid17Tested": false,
-  "status": "verified-locally-before-publication",
+  "status": "published-and-verified",
   "rootCause": "APK 3.1 compiled against android-all resolved hidden ShortcutManager.disableShortcuts(List,String), absent on device",
   "reproducedException": "java.lang.NoSuchMethodError: disableShortcuts(Ljava/util/List;Ljava/lang/String;)V",
   "fixedDescriptor": "(Ljava/util/List;Ljava/lang/CharSequence;)V",
@@ -32,7 +32,49 @@
   "certificateSha256": "2DA8C0B059D20AF21BA8C2EE6C0FA7E624802DEB47BC5E55BC7253CC6BE366C7",
   "fullGameplayValidatedOnEmulator": false,
   "environmentLimitations": [
-    "Software CPU emulation produced a System UI ANR; launcher and full gameplay are not certified by the native process/start checks."
+    "Software CPU emulation produced a transient System UI ANR; after dismissing it the actual game UI rendered. Full gameplay, widgets in launcher, and Pixel 9 Pro Android 17 are not certified by these startup checks."
   ],
-  "onPixel9ProAndroid17Tested": false
+  "onPixel9ProAndroid17Tested": false,
+  "actionsRun": "https://github.com/iluhin/app.slovoplet.beta/actions/runs/44730459986",
+  "actionsConclusion": "success",
+  "release": "https://github.com/iluhin/app.slovoplet.beta/releases/tag/beta-v3.1.1",
+  "downloadedReleaseAssetsVerified": 4,
+  "initialGameScreenRenderedOnEmulator": true,
+  "publishedHttpsLoader": {
+    "mode": "published-https",
+    "applicationId": "com.iluhin.fiveletters.beta",
+    "upgrades": [
+      {
+        "startingComponents": "3.0",
+        "shellVersion": "3.0",
+        "componentVersion": "3.1.1",
+        "downloadedFiles": 4,
+        "downloadedBytes": 161169,
+        "reusedFiles": 6,
+        "confirmedAfterRestart": true,
+        "activeStayedUntilApply": true
+      },
+      {
+        "startingComponents": "3.0.1",
+        "shellVersion": "3.0.1",
+        "componentVersion": "3.1.1",
+        "downloadedFiles": 4,
+        "downloadedBytes": 161169,
+        "reusedFiles": 6,
+        "confirmedAfterRestart": true,
+        "activeStayedUntilApply": true
+      },
+      {
+        "startingComponents": "3.0+3.0.1",
+        "shellVersion": "3.0",
+        "componentVersion": "3.1.1",
+        "downloadedFiles": 4,
+        "downloadedBytes": 161169,
+        "reusedFiles": 6,
+        "confirmedAfterRestart": true,
+        "activeStayedUntilApply": true
+      }
+    ],
+    "publishedCurrentManifestMatched": true
+  }
 }
