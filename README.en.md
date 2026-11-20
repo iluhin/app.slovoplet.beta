@@ -1,6 +1,6 @@
 [Русский](README.md) · **English** · [Español](README.es.md) · [简体中文](README.zh-CN.md)
 
-> **3.1.1 hotfix:** APK 3.1 crashes on startup because it calls a non-public Android shortcut overload. Install APK 3.1.1 over the beta without uninstalling or clearing data. A component-only OTA cannot repair native code.
+> **Beta 3.1.2:** a popup for new APK releases and four widgets styled like the game, with your theme, tiles, charts and clear actions. Install APK 3.1.2 for the new widgets; the update popup also arrives through OTA on older shells.
 
 <div align="center">
 
@@ -8,14 +8,14 @@
 
 </div>
 
-# Slovoplet · Beta 3.1.1
+# Slovoplet · Beta 3.1.2
 
 **Home-screen widgets, dynamic shortcuts and component updates.**
-Beta 3.1.1 brings the features planned for stable version 2.8 into the beta channel.
+Beta 3.1.2 brings the features planned for stable version 2.8 into the beta channel.
 Stable and beta releases have separate version sequences.
 
-[**Test OTA to 3.1.1**](docs/TESTING.md) ·
-[**APK 3.1.1 — widgets**](https://github.com/iluhin/app.slovoplet.beta/releases/download/beta-v3.1.1/slovoplet-beta-3.1.1.apk) ·
+[**Test OTA to 3.1.2**](docs/TESTING.md) ·
+[**APK 3.1.2 — widgets**](https://github.com/iluhin/app.slovoplet.beta/releases/download/beta-v3.1.2/slovoplet-beta-3.1.2.apk) ·
 [**Beta releases**](releases/README.md) ·
 [**Stable game**](https://github.com/iluhin/app.slovoplet)
 
@@ -23,17 +23,17 @@ Stable and beta releases have separate version sequences.
 
 | Part | Version | How to get it |
 |---|---|---|
-| Web components | **3.1.1**, revision **30101** | Inside the installed corrected beta 3.0 / 3.0.1 |
-| Android shell | **3.1.1**, build **30101** | Install APK 3.1.1 over the corrected com beta |
+| Web components | **3.1.2**, revision **30102** | Inside the installed corrected beta 3.0 / 3.0.1 |
+| Android shell | **3.1.2**, build **30102** | Install APK 3.1.2 over the corrected com beta |
 | Application ID | **com.iluhin.fiveletters.beta** | The owner's signing certificate is unchanged |
 
-**To test OTA, do not install APK 3.1.1 first.** Open the installed beta 3.0 / 3.0.1,
+**To test OTA, do not install APK 3.1.2 first.** Open the installed beta 3.0 / 3.0.1,
 tap the beta button at the bottom and check for updates. Finish the current round
 and apply the downloaded components. The result is:
-**APK shell 3.0 (or 3.0.1) · components 3.1.1**, without the Android installer.
+**APK shell 3.0 (or 3.0.1) · components 3.1.2**, without the Android installer.
 
 If you need a starting APK: [3.0 r2](https://github.com/iluhin/app.slovoplet.beta/releases/download/beta-v3.0.0-r2/slovoplet-beta-3.0.apk).
-After testing the components, you can install APK 3.1.1 over the corrected beta:
+After testing the components, you can install APK 3.1.2 over the corrected beta:
 its application ID and signing certificate are the same, so uninstalling is unnecessary.
 
 ## Features from the 2.8 plan
@@ -43,9 +43,9 @@ its application ID and signing certificate are the same, so uninstalling is unne
 - **Quick start**: a new game or continuation, with five colored tiles from the last round and no letters.
 - **Leaderboard**: three leaders, your known position and the snapshot date.
 - **Dynamic shortcuts**: new/continue, daily word, leaderboard and profile.
-- **In-game widget preview**: delivered with components 3.1.1, including on older shells.
+- **In-game widget preview**: delivered with components 3.1.2, including on older shells.
 
-Actual home-screen widgets and shortcuts require **APK 3.1.1**. Web file updates
+Actual home-screen widgets and shortcuts require **APK 3.1.2**. Web file updates
 cannot add Java classes or Android resources. Widgets support Android 7.0+;
 dynamic shortcuts require Android 7.1+ and a compatible launcher.
 [Widget setup and behavior →](docs/WIDGETS.md)

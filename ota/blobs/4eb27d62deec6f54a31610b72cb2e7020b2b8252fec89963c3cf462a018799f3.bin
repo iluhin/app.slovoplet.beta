@@ -1,0 +1,51 @@
+/* beta OTA controls. Native code verifies, stages and rolls back components. */
+(() => {
+'use strict';
+if (!window.FIVE_APP || FIVE_APP.channel !== 'beta') return;
+const api = window.FiveApp, $ = s => document.querySelector(s);
+const button=document.createElement('button');button.type='button';button.className='linkbtn';button.id='beta-update-open';button.style.cssText='display:block;margin:5px auto;font-size:12px';button.textContent='β · Компоненты '+FIVE_APP.version;
+($('.foot') || $('#app')).append(button);
+const modal=document.createElement('div');modal.className='modal';modal.id='m-beta-updates';
+modal.innerHTML='<div class="shade"></div><div class="sheet"><button class="close" type="button" aria-label="Закрыть">×</button><h2>Обновления beta</h2><p class="sub">Компоненты игры обновляются без переустановки. Оболочка APK обновляется отдельно.</p><div class="stack"><p id="beta-versions"></p><p id="beta-demo" role="status"></p><p id="beta-message" role="status"></p><p id="beta-size" class="hint"></p><section id="beta-widget-preview" aria-labelledby="beta-widget-title"><h3 id="beta-widget-title">Виджеты · beta 3.1.2</h3><p class="hint">Четыре виджета на главном экране: статистика, слово дня, быстрый старт и рейтинг. Установите APK 3.1.2 для виджетов в стиле игры. Предпросмотр работает и на старой оболочке.</p><p id="beta-widget-status" class="hint"></p><p id="beta-widget-stats"></p><p id="beta-widget-daily" class="hint"></p><p id="beta-widget-game" class="hint"></p><div id="beta-widget-colors" role="img" aria-label="Цвета последней завершённой партии"></div><p id="beta-widget-ranking" class="hint"></p></section><p id="beta-apk-status" class="hint" role="status">Обновление APK добавляет новые возможности оболочки и виджетов.</p><button class="btn block" id="beta-apk-check" type="button">Проверить обновление APK</button><button class="btn block" id="beta-check" type="button">Проверить обновления</button><button class="btn primary block" id="beta-apply" type="button" disabled>Применить без установки APK</button><p class="hint">Незаконченная партия не перезапускается автоматически. Загруженная версия включится при следующем запуске или по кнопке после партии.</p></div></div>';
+document.body.append(modal);
+button.onclick=()=>{modal.classList.add('open');render();};
+modal.querySelector('.close').onclick=()=>modal.classList.remove('open');modal.querySelector('.shade').onclick=()=>modal.classList.remove('open');
+let current={};
+function widgetPreview(){
+ let status={}, snapshot={};
+ try{if(api&&typeof api.widgetStatus==='function')status=JSON.parse(api.widgetStatus())||{};}catch(_){}
+ try{snapshot=JSON.parse(localStorage.getItem('five_widget_snapshot')||'{}')||{};}catch(_){}
+ if(status.snapshot&&status.snapshot.schema===1)snapshot=status.snapshot;
+ $('#beta-widget-status').textContent=status.supported===true?'Виджеты доступны в установленном APK. Добавьте их через меню главного экрана Android.':'Компоненты 3.1.2 установлены. Для виджетов в стиле игры обновите APK до 3.1.2.';
+ const st=snapshot.stats, num=n=>Math.max(0,Math.floor(Number(n)||0));
+ const source=snapshot.source==='offline'?'Автономная статистика · в рейтинг сайта не идёт':snapshot.source==='online'?'Статистика сайта · '+(snapshot.profile||'Профиль'):'Гость · результаты не сохраняются';
+ $('#beta-widget-stats').textContent=st?source+' · игр: '+num(st.games)+' · побед: '+num(st.wins)+' · серия: '+num(st.streak):'Откройте игру, чтобы сохранить статистику для виджетов.';
+ const daily=snapshot.daily;
+ $('#beta-widget-daily').textContent=daily?(snapshot.source==='offline'?'Последнее состояние сайта · ':'')+(daily.enabled?(daily.done?'Слово дня сыграно':'Слово дня доступно'):'Слово дня отключено')+' · '+daily.day+' · '+daily.zone:'';
+ $('#beta-widget-game').textContent=snapshot.live?'Незаконченная партия · продолжить':snapshot.schema?'Быстрый старт · открыть игру':'';
+ const colors=$('#beta-widget-colors');colors.textContent='';
+ if(typeof snapshot.colors==='string'&&/^[apc]{5}$/.test(snapshot.colors))for(const color of snapshot.colors){const tile=document.createElement('span');tile.className='beta-widget-color';tile.dataset.s=color;tile.setAttribute('aria-hidden','true');colors.append(tile);}
+ const rank=snapshot.ranking, date=rank&&Number(rank.updatedAt)>0?new Date(Number(rank.updatedAt)).toLocaleString('ru-RU'):'';
+ $('#beta-widget-ranking').textContent=rank&&date?'Рейтинг · Снимок от '+date+' · '+(Array.isArray(rank.leaders)?rank.leaders:[]).slice(0,3).map(p=>p.position+'. '+p.name+' — '+p.value).join(' · ')+' · '+(rank.myPosition>0?'Ваше место: '+rank.myPosition:'Ваше место неизвестно: ответ сервера содержит только верхние строки.'):'Рейтинг ещё не загружен. Откройте таблицу при наличии связи.';
+}
+window.BetaWidgets={refresh:widgetPreview};
+function render(){
+ widgetPreview();
+ try{current=api&&api.otaStatus?JSON.parse(api.otaStatus()):{shell:FIVE_APP.shellVersion,version:FIVE_APP.version,message:'Нативный OTA-мост недоступен'};}catch(_){return;}
+ $('#beta-versions').textContent='Канал: beta · Оболочка APK '+(current.shell||FIVE_APP.shellVersion)+' · Компоненты '+(current.version||FIVE_APP.version);
+ $('#beta-message').textContent=current.message||'Проверка beta-канала';
+ $('#beta-size').textContent=current.changed?'Загружено файлов: '+current.changed+' · '+current.bytes+' байт · Повторно использовано: '+current.reused:'';
+ $('#beta-check').disabled=['checking','downloading'].includes(current.phase);
+ $('#beta-apply').disabled=!current.ready;
+ button.textContent=current.ready?'β · Готова '+current.ready:'β · Компоненты '+(current.version||FIVE_APP.version);
+}
+$('#beta-apk-check').onclick=()=>{if(window.BetaApkUpdates)BetaApkUpdates.check();};
+$('#beta-check').onclick=()=>{if(api&&api.otaCheck)api.otaCheck();render();};
+$('#beta-apply').onclick=()=>{
+ if(!window.BETA_CAN_APPLY||!BETA_CAN_APPLY()){$('#beta-message').textContent='Сначала завершите текущую партию. Компоненты уже сохранены.';return;}
+ if(api&&api.otaApply)api.otaApply();
+};
+fetch('assets/beta-release.json').then(r=>r.json()).then(r=>{$('#beta-demo').textContent=r.demo;}).catch(()=>{});
+window.BetaUpdates={ready(){if(api&&api.otaHealthy)api.otaHealthy();if(api&&api.otaCheck)api.otaCheck();render();}};
+render();setInterval(()=>{if(!document.hidden)render();},1200);
+})();

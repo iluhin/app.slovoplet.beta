@@ -1,0 +1,190 @@
+{
+  "status": "verified-locally-before-publication",
+  "applicationId": "com.iluhin.fiveletters.beta",
+  "shellVersion": "3.1.2",
+  "versionCode": 30102,
+  "componentRevision": 30102,
+  "apkSha256": "96701a1d9a9c358abfe12f9165e387be593e3a53442588c7fff5baba5208ecfc",
+  "certificateSha256": "2DA8C0B059D20AF21BA8C2EE6C0FA7E624802DEB47BC5E55BC7253CC6BE366C7",
+  "nativeDataChecks": 40,
+  "widgetBrowserScenarioGroups": 12,
+  "apkBrowserScenarioGroups": 9,
+  "compileSdk": "official Android SDK34",
+  "apkNotification": {
+    "feed": "https://raw.githubusercontent.com/iluhin/app.slovoplet.beta/main/ota/apk.json",
+    "metadataMatchesBinary": true,
+    "nativeShellComparedSeparatelyFromComponents": true,
+    "oldShellsAfterCompatibleOTA": [
+      "3.0",
+      "3.0.1",
+      "3.1.1"
+    ],
+    "validatedPinnedDownloadAndIdentity": true,
+    "defersDuringGameAuthAndModals": true,
+    "targetSpecificSnoozeHours": 24,
+    "manualCheckBypassesSnooze": true,
+    "browserDownloadBypassesOldOTABridge": true,
+    "stableBehaviorRetained": true
+  },
+  "localLoaderUpgrades": {
+    "mode": "local-rehearsal",
+    "applicationId": "com.iluhin.fiveletters.beta",
+    "upgrades": [
+      {
+        "startingComponents": "3.0",
+        "shellVersion": "3.0",
+        "componentVersion": "3.1.2",
+        "downloadedFiles": 4,
+        "downloadedBytes": 166415,
+        "reusedFiles": 6,
+        "confirmedAfterRestart": true,
+        "activeStayedUntilApply": true
+      },
+      {
+        "startingComponents": "3.0.1",
+        "shellVersion": "3.0.1",
+        "componentVersion": "3.1.2",
+        "downloadedFiles": 4,
+        "downloadedBytes": 166415,
+        "reusedFiles": 6,
+        "confirmedAfterRestart": true,
+        "activeStayedUntilApply": true
+      },
+      {
+        "startingComponents": "3.0+3.0.1",
+        "shellVersion": "3.0",
+        "componentVersion": "3.1.2",
+        "downloadedFiles": 4,
+        "downloadedBytes": 166415,
+        "reusedFiles": 6,
+        "confirmedAfterRestart": true,
+        "activeStayedUntilApply": true
+      },
+      {
+        "startingComponents": "3.1.1",
+        "shellVersion": "3.1.1",
+        "componentVersion": "3.1.2",
+        "downloadedFiles": 3,
+        "downloadedBytes": 107611,
+        "reusedFiles": 7,
+        "confirmedAfterRestart": true,
+        "activeStayedUntilApply": true
+      }
+    ]
+  },
+  "previousArtifactsUnchanged": true,
+  "onPixel9ProAndroid17Tested": false,
+  "limits": [
+    "Native screenshots are actual RemoteViews.apply and View.draw on Android Canvas at fixed compact/wide sizes in an API28 emulator, not physical launcher placement.",
+    "Arbitrary launcher resizing, large system fonts and physical Pixel9Pro/Android17 require owner testing.",
+    "No background game-server requests; rankings use cached snapshots and the daily countdown is explicitly approximate."
+  ],
+  "nativeRendering": {
+    "environment": "Android Emulator API28 x86_64",
+    "renderer": "production RemoteViews.apply + measured View.draw on Android Canvas; blank-output guard",
+    "cases": [
+      {
+        "size": "compact",
+        "state": "populated",
+        "theme": "aurora",
+        "remoteViewsInflated": 4,
+        "screenshot": "widgets-3.1.2-aurora-populated-compact.png"
+      },
+      {
+        "size": "wide",
+        "state": "populated",
+        "theme": "aurora",
+        "remoteViewsInflated": 4,
+        "screenshot": "widgets-3.1.2-aurora-populated-wide.png"
+      },
+      {
+        "size": "compact",
+        "state": "empty",
+        "theme": "candy",
+        "remoteViewsInflated": 4,
+        "screenshot": "widgets-3.1.2-candy-empty-compact.png"
+      },
+      {
+        "size": "wide",
+        "state": "empty",
+        "theme": "candy",
+        "remoteViewsInflated": 4,
+        "screenshot": "widgets-3.1.2-candy-empty-wide.png"
+      },
+      {
+        "size": "wide",
+        "state": "offline",
+        "theme": "matcha",
+        "remoteViewsInflated": 4,
+        "screenshot": "widgets-3.1.2-matcha-offline-wide.png"
+      },
+      {
+        "size": "wide",
+        "state": "disabled",
+        "theme": "sunset",
+        "remoteViewsInflated": 4,
+        "screenshot": "widgets-3.1.2-sunset-disabled-wide.png"
+      },
+      {
+        "size": "wide",
+        "state": "done",
+        "theme": "contrast",
+        "remoteViewsInflated": 4,
+        "screenshot": "widgets-3.1.2-contrast-done-wide.png"
+      },
+      {
+        "size": "wide",
+        "state": "populated",
+        "theme": "midnight",
+        "remoteViewsInflated": 4,
+        "screenshot": "widgets-3.1.2-midnight-populated-wide.png"
+      }
+    ],
+    "casesMeasuredAt": {
+      "compact": "160x168 dp",
+      "wide": "340x172 dp"
+    },
+    "reviewedMaterialIssuesFixed": [
+      "Quick headlines fit without truncation",
+      "All eight chart rows fit",
+      "Disabled daily recovers via safe regular-game route",
+      "Countdown explicitly approximate"
+    ]
+  },
+  "layoutGeometryChecks": [
+    {
+      "size": "wide",
+      "state": "populated",
+      "theme": "aurora",
+      "layoutChecks": "Eighth histogram count fits every clipping ancestor; quick headline untruncated"
+    },
+    {
+      "size": "compact",
+      "state": "empty",
+      "theme": "candy",
+      "layoutChecks": "Quick headline untruncated"
+    }
+  ],
+  "nativeStartup": {
+    "environment": "Android Emulator API28 x86_64",
+    "upgradeDataMarkerPreserved": true,
+    "launches": [
+      {
+        "coldLaunch": 1,
+        "processAlive": true,
+        "noFatalException": true
+      },
+      {
+        "coldLaunch": 2,
+        "processAlive": true,
+        "noFatalException": true
+      },
+      {
+        "coldLaunch": 3,
+        "processAlive": true,
+        "noFatalException": true
+      }
+    ],
+    "pixel9ProAndroid17Tested": false
+  }
+}

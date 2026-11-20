@@ -39,7 +39,7 @@ def main():
         data=(d/name).read_bytes()
         assert len(data)==c['bytes'] and hashlib.sha256(data).hexdigest()==c['sha256'],name
     snapshots={}
-    for version,revision in [('3.0',30000),('3.0.1',30001),('3.1',30100),('3.1.1',30101)]:
+    for version,revision in [('3.0',30000),('3.0.1',30001),('3.1',30100),('3.1.1',30101),('3.1.2',30102)]:
         manifest=d/('manifest-'+version+'.json')
         assert manifest.read_bytes()==(ROOT/'ota'/manifest.name).read_bytes()
         p=payload(manifest);snapshots[version]=p
@@ -52,7 +52,7 @@ def main():
         assert "launchable-activity: name='com.iluhin.fiveletters.MainActivity'" in badging
         certificate=run([sdk_tool('apksigner'),'verify','--print-certs',str(apk)])
         assert CERT in certificate.replace(':','').lower(),apk
-        if version in ('3.1','3.1.1'):
+        if version in ('3.1','3.1.1','3.1.2'):
             xml=run([sdk_tool('aapt2'),'dump','xmltree',str(apk),'--file','AndroidManifest.xml'])
             assert sum('android.appwidget.provider' in line for line in xml.splitlines())==4, 'Four native widget providers must be compiled'
             assert sum('android.appwidget.action.APPWIDGET_UPDATE' in line for line in xml.splitlines())==4
@@ -61,7 +61,7 @@ def main():
                 info=run([sdk_tool('aapt2'),'dump','xmltree',str(apk),'--file','res/xml/widget_'+name+'.xml'])
                 period=re.search(r'updatePeriodMillis[^\n]*=(0x[0-9a-fA-F]+|[0-9]+)',info)
                 assert period and int(period.group(1),0)==1800000, name
-        if version=='3.1.1':verify_shortcuts(apk)
+        if version in ('3.1.1','3.1.2'):verify_shortcuts(apk)
         with zipfile.ZipFile(apk) as z:
             dex=z.read('classes.dex')
             assert ORIGIN.encode() in dex and b'con.iluhin.fiveletters.beta' not in dex
@@ -71,10 +71,16 @@ def main():
             assert z.read('manifest.json')==manifest.read_bytes()
             for f in p['files']:
                 assert hashlib.sha256(z.read('web/'+f['path'])).hexdigest()==f['sha256'],f
-    assert (ROOT/'ota/manifest.json').read_bytes()==(d/'manifest-3.1.1.json').read_bytes()
+    assert (ROOT/'ota/manifest.json').read_bytes()==(d/'manifest-3.1.2.json').read_bytes()
     assert payload(ROOT/'ota/manifest.json')['applicationId']==APP
+    app=json.loads((ROOT/'ota/apk.json').read_text())
+    assert app['format']==1 and app['applicationId']==APP and app['channel']=='beta'
+    assert app['versionName']=='3.1.2' and app['versionCode']==30102
+    assert app['downloadUrl']=='https://github.com/iluhin/app.slovoplet.beta/releases/download/beta-v3.1.2/slovoplet-beta-3.1.2.apk'
+    assert app['size']==checks['slovoplet-beta-3.1.2.apk']['bytes'] and app['sha256']==checks['slovoplet-beta-3.1.2.apk']['sha256']
+    assert app['certificateSha256'].lower()==CERT
     before={f['path']:f for f in snapshots['3.0']['files']}
     changed=[f for f in snapshots['3.0.1']['files'] if before[f['path']]['sha256']!=f['sha256']]
     assert len(changed)==1 and changed[0]['size']==152 and len(before)-len(changed)==9
-    print('PASS 3.0/3.0.1/3.1/3.1.1 identities, certificates, signatures, compiled widgets, component hashes and preserved 152-byte baseline test')
+    print('PASS 3.0/3.0.1/3.1/3.1.1/3.1.2 identities, certificates, signatures, compiled widgets, component hashes and preserved 152-byte baseline test')
 if __name__=='__main__':main()

@@ -1,6 +1,6 @@
 [Русский](README.md) · [English](README.en.md) · **Español** · [简体中文](README.zh-CN.md)
 
-> **Corrección 3.1.1:** el APK 3.1 falla al iniciar por una llamada a una API no pública de accesos directos de Android. Instala el APK 3.1.1 sobre la beta, sin desinstalar ni borrar datos. Una actualización OTA de componentes no corrige el código nativo.
+> **Beta 3.1.2:** aviso emergente de nuevos APK y cuatro widgets con el diseño del juego: tema elegido, casillas, gráficos y acciones visibles. Instala el APK 3.1.2 para el nuevo diseño; el aviso también llega por OTA a versiones anteriores.
 
 <div align="center">
 
@@ -8,14 +8,14 @@
 
 </div>
 
-# Slovoplet · Beta 3.1.1
+# Slovoplet · Beta 3.1.2
 
 **Widgets de inicio, accesos directos dinámicos y actualizaciones por componentes.**
-La beta 3.1.1 incorpora las funciones previstas para la versión estable 2.8.
+La beta 3.1.2 incorpora las funciones previstas para la versión estable 2.8.
 Los canales estable y beta tienen numeraciones independientes.
 
-[**Probar OTA a 3.1.1**](docs/TESTING.md) ·
-[**APK 3.1.1 — widgets**](https://github.com/iluhin/app.slovoplet.beta/releases/download/beta-v3.1.1/slovoplet-beta-3.1.1.apk) ·
+[**Probar OTA a 3.1.2**](docs/TESTING.md) ·
+[**APK 3.1.2 — widgets**](https://github.com/iluhin/app.slovoplet.beta/releases/download/beta-v3.1.2/slovoplet-beta-3.1.2.apk) ·
 [**Versiones beta**](releases/README.md) ·
 [**Juego estable**](https://github.com/iluhin/app.slovoplet)
 
@@ -23,17 +23,17 @@ Los canales estable y beta tienen numeraciones independientes.
 
 | Parte | Versión | Cómo obtenerla |
 |---|---|---|
-| Componentes web | **3.1.1**, revisión **30101** | Desde la beta corregida 3.0 / 3.0.1 ya instalada |
-| Contenedor de Android | **3.1.1**, compilación **30101** | Instalar el APK 3.1.1 sobre la beta com corregida |
+| Componentes web | **3.1.2**, revisión **30102** | Desde la beta corregida 3.0 / 3.0.1 ya instalada |
+| Contenedor de Android | **3.1.2**, compilación **30102** | Instalar el APK 3.1.2 sobre la beta com corregida |
 | Identificador | **com.iluhin.fiveletters.beta** | Se conserva el certificado del propietario |
 
-**Para probar OTA, no instales primero el APK 3.1.1.** Abre la beta 3.0 / 3.0.1,
+**Para probar OTA, no instales primero el APK 3.1.2.** Abre la beta 3.0 / 3.0.1,
 pulsa el botón beta inferior y busca actualizaciones. Termina la partida y aplica
 los componentes descargados. El resultado debe ser:
-**contenedor APK 3.0 (o 3.0.1) · componentes 3.1.1**, sin el instalador de Android.
+**contenedor APK 3.0 (o 3.0.1) · componentes 3.1.2**, sin el instalador de Android.
 
 APK inicial, si lo necesitas: [3.0 r2](https://github.com/iluhin/app.slovoplet.beta/releases/download/beta-v3.0.0-r2/slovoplet-beta-3.0.apk).
-Después puedes instalar el APK 3.1.1 sobre la beta corregida: mantiene el
+Después puedes instalar el APK 3.1.2 sobre la beta corregida: mantiene el
 identificador y el certificado, por lo que no hace falta desinstalarla.
 
 ## Funciones del plan 2.8
@@ -43,9 +43,9 @@ identificador y el certificado, por lo que no hace falta desinstalarla.
 - **Inicio rápido**: nueva partida o continuar, con cinco casillas de colores del último resultado y sin letras.
 - **Clasificación**: tres líderes, tu posición conocida y fecha de la captura.
 - **Accesos directos dinámicos**: nueva/continuar, palabra del día, clasificación y perfil.
-- **Vista previa dentro del juego**: llega con los componentes 3.1.1, también en los contenedores anteriores.
+- **Vista previa dentro del juego**: llega con los componentes 3.1.2, también en los contenedores anteriores.
 
-Los widgets reales del escritorio y los accesos directos requieren **APK 3.1.1**.
+Los widgets reales del escritorio y los accesos directos requieren **APK 3.1.2**.
 Actualizar archivos web no añade clases Java ni recursos Android. Los widgets
 funcionan desde Android 7.0; los accesos dinámicos requieren Android 7.1 y un
 lanzador compatible. [Configuración y funcionamiento →](docs/WIDGETS.md)

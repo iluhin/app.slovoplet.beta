@@ -1,6 +1,6 @@
 [Русский](README.md) · [English](README.en.md) · [Español](README.es.md) · **简体中文**
 
-> **3.1.1 修复版：** APK 3.1 调用了非公开的 Android 快捷方式方法，导致启动崩溃。请直接覆盖安装 APK 3.1.1，无需卸载或清除数据。仅更新 Web 组件无法修复原生代码。
+> **Beta 3.1.2：**新增 APK 更新弹窗，四种桌面小组件采用游戏主题、字块、图表和清晰的操作按钮。新版小组件需要安装 APK 3.1.2；旧版外壳通过 OTA 更新组件后也能获得 APK 更新提示。
 
 <div align="center">
 
@@ -8,13 +8,13 @@
 
 </div>
 
-# Slovoplet · Beta 3.1.1
+# Slovoplet · Beta 3.1.2
 
 **桌面小组件、动态快捷方式和组件更新。**
-Beta 3.1.1 引入了稳定版 2.8 计划中的功能。稳定渠道与 beta 渠道分别编号。
+Beta 3.1.2 引入了稳定版 2.8 计划中的功能。稳定渠道与 beta 渠道分别编号。
 
-[**测试 OTA 更新到 3.1.1**](docs/TESTING.md) ·
-[**APK 3.1.1 — 小组件**](https://github.com/iluhin/app.slovoplet.beta/releases/download/beta-v3.1.1/slovoplet-beta-3.1.1.apk) ·
+[**测试 OTA 更新到 3.1.2**](docs/TESTING.md) ·
+[**APK 3.1.2 — 小组件**](https://github.com/iluhin/app.slovoplet.beta/releases/download/beta-v3.1.2/slovoplet-beta-3.1.2.apk) ·
 [**Beta 发布版本**](releases/README.md) ·
 [**稳定版游戏**](https://github.com/iluhin/app.slovoplet)
 
@@ -22,16 +22,16 @@ Beta 3.1.1 引入了稳定版 2.8 计划中的功能。稳定渠道与 beta 渠�
 
 | 部分 | 版本 | 获取方式 |
 |---|---|---|
-| Web 组件 | **3.1.1**，修订号 **30101** | 在已安装的修正版 beta 3.0 / 3.0.1 内更新 |
-| Android 原生外壳 | **3.1.1**，构建号 **30101** | 在修正后的 com beta 上安装 APK 3.1.1 |
+| Web 组件 | **3.1.2**，修订号 **30102** | 在已安装的修正版 beta 3.0 / 3.0.1 内更新 |
+| Android 原生外壳 | **3.1.2**，构建号 **30102** | 在修正后的 com beta 上安装 APK 3.1.2 |
 | 应用 ID | **com.iluhin.fiveletters.beta** | 保留所有者原有的签名证书 |
 
-**测试 OTA 时，请勿先安装 APK 3.1.1。** 打开已安装的 beta 3.0 / 3.0.1，
+**测试 OTA 时，请勿先安装 APK 3.1.2。** 打开已安装的 beta 3.0 / 3.0.1，
 点击底部 beta 按钮并检查更新。完成本局后应用下载的组件。
-预期结果：**APK 外壳 3.0（或 3.0.1）· 组件 3.1.1**，不会打开 Android 安装程序。
+预期结果：**APK 外壳 3.0（或 3.0.1）· 组件 3.1.2**，不会打开 Android 安装程序。
 
 需要初始 APK 时，可下载 [3.0 r2](https://github.com/iluhin/app.slovoplet.beta/releases/download/beta-v3.0.0-r2/slovoplet-beta-3.0.apk)。
-完成组件测试后，可在修正版 beta 上安装 APK 3.1.1；
+完成组件测试后，可在修正版 beta 上安装 APK 3.1.2；
 应用 ID 和证书相同，无需卸载修正版应用。
 
 ## 从 2.8 计划引入的功能
@@ -41,9 +41,9 @@ Beta 3.1.1 引入了稳定版 2.8 计划中的功能。稳定渠道与 beta 渠�
 - **快速开始**：新游戏或继续游戏，仅显示上一局的五个彩色方格，不显示字母。
 - **排行榜**：前三名、已知的个人名次以及数据保存时间。
 - **动态快捷方式**：新建/继续、每日单词、排行榜和个人资料。
-- **游戏内小组件预览**：随组件 3.1.1 更新到旧版外壳上。
+- **游戏内小组件预览**：随组件 3.1.2 更新到旧版外壳上。
 
-真正的桌面小组件和快捷方式需要 **APK 3.1.1**。
+真正的桌面小组件和快捷方式需要 **APK 3.1.2**。
 Web 文件更新无法增加 Java 类或 Android 资源。小组件支持 Android 7.0 及以上；
 动态快捷方式需要 Android 7.1 及兼容的桌面启动器。
 [设置与使用说明 →](docs/WIDGETS.md)
