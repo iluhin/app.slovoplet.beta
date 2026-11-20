@@ -73,12 +73,18 @@ def main():
                 assert hashlib.sha256(z.read('web/'+f['path'])).hexdigest()==f['sha256'],f
     assert (ROOT/'ota/manifest.json').read_bytes()==(d/'manifest-3.1.2.json').read_bytes()
     assert payload(ROOT/'ota/manifest.json')['applicationId']==APP
-    app=json.loads((ROOT/'ota/apk.json').read_text())
-    assert app['format']==1 and app['applicationId']==APP and app['channel']=='beta'
-    assert app['versionName']=='3.1.2' and app['versionCode']==30102
-    assert app['downloadUrl']=='https://github.com/iluhin/app.slovoplet.beta/releases/download/beta-v3.1.2/slovoplet-beta-3.1.2.apk'
-    assert app['size']==checks['slovoplet-beta-3.1.2.apk']['bytes'] and app['sha256']==checks['slovoplet-beta-3.1.2.apk']['sha256']
-    assert app['certificateSha256'].lower()==CERT
+    # Prepare a versioned APK snapshot before publishing the live notification pointer.
+    metadata=[ROOT/'ota/apk-3.1.2.json']
+    if (ROOT/'ota/apk.json').is_file():metadata.append(ROOT/'ota/apk.json')
+    for path in metadata:
+        app=json.loads(path.read_text());version=app['versionName']
+        assert app['format']==1 and app['applicationId']==APP and app['channel']=='beta'
+        assert version in snapshots and app['versionCode']==snapshots[version]['revision'] and app['versionCode']<=30102
+        if path.name!='apk.json':assert version=='3.1.2'
+        assert app['downloadUrl']=='https://github.com/iluhin/app.slovoplet.beta/releases/download/beta-v'+version+'/slovoplet-beta-'+version+'.apk'
+        artifact=checks['slovoplet-beta-'+version+'.apk']
+        assert app['size']==artifact['bytes'] and app['sha256']==artifact['sha256']
+        assert app['certificateSha256'].lower()==CERT
     before={f['path']:f for f in snapshots['3.0']['files']}
     changed=[f for f in snapshots['3.0.1']['files'] if before[f['path']]['sha256']!=f['sha256']]
     assert len(changed)==1 and changed[0]['size']==152 and len(before)-len(changed)==9
