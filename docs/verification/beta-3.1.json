@@ -1,5 +1,5 @@
 {
-  "mode": "local-rehearsal",
+  "mode": "published-https",
   "applicationId": "com.iluhin.fiveletters.beta",
   "upgrades": [
     {
@@ -44,5 +44,11 @@
   "oldArtifactsUnchanged": true,
   "onDeviceInstallationTested": false,
   "launcherWidgetHostTested": false,
-  "browserScenarioGroups": 12
+  "browserScenarioGroups": 12,
+  "publishedCurrentManifestMatched": true,
+  "actionsRun": "https://github.com/iluhin/app.slovoplet.beta/actions/runs/44726854871",
+  "actionsConclusion": "success",
+  "release": "https://github.com/iluhin/app.slovoplet.beta/releases/tag/beta-v3.1.0",
+  "downloadedReleaseAssetsVerified": 4,
+  "previousR2ReleasesAndAssetsUnchanged": true
 }
